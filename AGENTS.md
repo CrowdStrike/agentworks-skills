@@ -47,6 +47,7 @@ skills/
   foundry-redirect/ SKILL.md — points Foundry-app agent requests to foundry-skills
 common/scripts/     auth.py (shared API auth), discovery_helpers.py, invocation_helpers.py, formatting.py, waterfall.py, _bootstrap.py
 hooks/              Plugin hooks (venv bootstrap, intent routing)
+release.sh          Version bump and Codex bundle builder (see docs/RELEASING.md)
 references/         Cross-skill reference docs
 ```
 

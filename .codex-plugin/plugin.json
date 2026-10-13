@@ -20,7 +20,7 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "CrowdStrike Charlotte AI AgentWorks",
+    "displayName": "CrowdStrike AgentWorks",
     "shortDescription": "Build and manage AI agents",
     "longDescription": "Interact with Charlotte AI AgentWorks to create, configure, invoke, and monitor AI agents. Manage knowledge bases, discover available models and tools, and orchestrate agent workflows.",
     "developerName": "CrowdStrike",
@@ -30,6 +30,7 @@
       "Write"
     ],
     "websiteURL": "https://github.com/CrowdStrike/agentworks-skills",
+    "supportURL": "https://github.com/CrowdStrike/agentworks-skills/issues",
     "privacyPolicyURL": "https://www.crowdstrike.com/en-us/legal/privacy-notice/",
     "termsOfServiceURL": "https://www.crowdstrike.com/en-us/legal/terms-conditions/",
     "defaultPrompt": [

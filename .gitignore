@@ -41,3 +41,7 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Codex bundles built by release.sh --bundle
+*.zip
+*.zip.partial
