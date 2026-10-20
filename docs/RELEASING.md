@@ -17,8 +17,7 @@ Run `./release.sh` from a clean `main` (interactive major/minor/patch bump, or
 After the PR merges, tag and publish the release:
 
 ```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
+gh release create vX.Y.Z --target main --title "vX.Y.Z" --generate-notes
 ```
 
 ## Codex / OpenAI Plugins bundle
