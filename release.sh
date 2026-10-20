@@ -10,8 +10,8 @@
 # 2. Update version in .claude-plugin/plugin.json
 # 3. Update SKILL.md version and updated date
 # 4. Update CHANGELOG date (TBD → today)
-# 5. Commit, tag, and push
-# 6. Print instructions for the marketplace PR
+# 5. Commit on a release branch and open a PR
+# 6. Print the post-merge release steps
 #
 set -euo pipefail
 
@@ -295,10 +295,10 @@ main() {
 
   local branch
   branch=$(git rev-parse --abbrev-ref HEAD)
-  # if [ "$branch" != "main" ]; then
-  #   printf "${RED}ERROR: Must be on main branch (currently on %s)${RESET}\n" "$branch" >&2
-  #   exit 1
-  # fi
+  if [ "$branch" != "main" ]; then
+    printf "${RED}ERROR: Must be on main branch (currently on %s)${RESET}\n" "$branch" >&2
+    exit 1
+  fi
 
   if ! git diff --quiet || ! git diff --cached --quiet; then
     printf "${RED}ERROR: Working tree is dirty. Commit or stash changes first.${RESET}\n" >&2
