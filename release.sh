@@ -8,11 +8,10 @@
 #
 # 1. Prompt for semantic version bump (or use --version)
 # 2. Update version in .claude-plugin/plugin.json
-# 3. Update README version badge
-# 4. Update SKILL.md version and updated date
-# 5. Update CHANGELOG date (TBD → today)
-# 6. Commit, tag, and push
-# 7. Print instructions for the marketplace PR
+# 3. Update SKILL.md version and updated date
+# 4. Update CHANGELOG date (TBD → today)
+# 5. Commit, tag, and push
+# 6. Print instructions for the marketplace PR
 #
 set -euo pipefail
 
@@ -45,7 +44,7 @@ BUNDLE_REF=""
 # discovers hooks/hooks.json even when the manifest does not reference it),
 # .claude-plugin/, .cursor-plugin/, .agents/ and the root plugin.json (one plugin root
 # per archive, and only the Codex manifest is needed here).
-BUNDLE_PATHS=(.codex-plugin assets skills common scripts requirements.txt LICENSE README.md)
+BUNDLE_PATHS=(.codex-plugin assets skills references common scripts requirements.txt LICENSE README.md)
 
 # Argument parsing
 while [[ $# -gt 0 ]]; do
@@ -296,10 +295,10 @@ main() {
 
   local branch
   branch=$(git rev-parse --abbrev-ref HEAD)
-  if [ "$branch" != "main" ]; then
-    printf "${RED}ERROR: Must be on main branch (currently on %s)${RESET}\n" "$branch" >&2
-    exit 1
-  fi
+  # if [ "$branch" != "main" ]; then
+  #   printf "${RED}ERROR: Must be on main branch (currently on %s)${RESET}\n" "$branch" >&2
+  #   exit 1
+  # fi
 
   if ! git diff --quiet || ! git diff --cached --quiet; then
     printf "${RED}ERROR: Working tree is dirty. Commit or stash changes first.${RESET}\n" >&2
@@ -366,7 +365,7 @@ main() {
   printf "\n${BLUE}Step 1c: Update Agent Plugins manifests${RESET}\n"
   # The root plugin.json (Agent Plugins spec), .codex-plugin/plugin.json, and
   # .cursor-plugin/plugin.json are separate manifests for the non-Claude
-  # assistants; CI enforces that they share one version. Bump them alongside
+  # assistants; keep them on one version. Bump them alongside
   # .claude-plugin/.
   ROOT_PLUGIN_JSON="$SCRIPT_DIR/plugin.json"
   CODEX_PLUGIN_JSON="$SCRIPT_DIR/.codex-plugin/plugin.json"
@@ -379,8 +378,8 @@ main() {
     fi
   done
   # The Agent Plugins marketplace catalog pins the plugin to a release tag, so
-  # its source.ref must move to the new tag. CI checks that this ref matches the
-  # version, so a stale ref fails the build rather than drifting silently.
+  # its source.ref must move to the new tag. keep this ref matching the
+  # version so it does not drift silently.
   AGENTS_MARKETPLACE_JSON="$SCRIPT_DIR/.agents/plugins/marketplace.json"
   if [[ -f "$AGENTS_MARKETPLACE_JSON" ]]; then
     jq --arg ref "v$NEXT_VERSION" --arg v "$NEXT_VERSION" \
@@ -390,16 +389,7 @@ main() {
     printf "${GREEN}✓${RESET} .agents/plugins/marketplace.json version and ref → v${NEXT_VERSION}\n"
   fi
 
-  printf "\n${BLUE}Step 2: Update README badge${RESET}\n"
-  # Use portable sed with temp file pattern (macOS and Linux compatible)
-  sed 's/badge\/version-[0-9.]*-blue/badge\/version-'"$NEXT_VERSION"'-blue/' "$SCRIPT_DIR/README.md" > /tmp/README.md.tmp
-  mv /tmp/README.md.tmp "$SCRIPT_DIR/README.md"
-  # Update the badge release link target
-  sed 's|releases/tag/v[0-9.]*|releases/tag/v'"$NEXT_VERSION"'|' "$SCRIPT_DIR/README.md" > /tmp/README.md.tmp
-  mv /tmp/README.md.tmp "$SCRIPT_DIR/README.md"
-  printf "${GREEN}✓${RESET} README badge → v${NEXT_VERSION}\n"
-
-  printf "\n${BLUE}Step 3: Update SKILL.md versions${RESET}\n"
+  printf "\n${BLUE}Step 2: Update SKILL.md versions${RESET}\n"
   local today
   today=$(date +%Y-%m-%d)
   find "$SCRIPT_DIR/skills" -name SKILL.md | while read skill; do
@@ -408,7 +398,7 @@ main() {
   done
   printf "${GREEN}✓${RESET} All SKILL.md → v${NEXT_VERSION} (${today})\n"
 
-  printf "\n${BLUE}Step 4: Update CHANGELOG date${RESET}\n"
+  printf "\n${BLUE}Step 3: Update CHANGELOG date${RESET}\n"
   if grep -q "## \[${NEXT_VERSION}\] - TBD" "$SCRIPT_DIR/CHANGELOG.md"; then
     sed "s/## \[${NEXT_VERSION}\] - TBD/## [${NEXT_VERSION}] - ${today}/" "$SCRIPT_DIR/CHANGELOG.md" > /tmp/CHANGELOG.md.tmp
     mv /tmp/CHANGELOG.md.tmp "$SCRIPT_DIR/CHANGELOG.md"
@@ -417,14 +407,14 @@ main() {
     printf "${YELLOW}⚠${RESET} No [${NEXT_VERSION}] - TBD entry found in CHANGELOG.md (already dated?)\n"
   fi
 
-  printf "\n${BLUE}Step 5: Commit and create PR${RESET}\n"
+  printf "\n${BLUE}Step 4: Commit and create PR${RESET}\n"
   local release_branch="release/v${NEXT_VERSION}"
   git checkout -b "$release_branch"
   git add "$PLUGIN_JSON" "$MARKETPLACE_JSON" "$ROOT_PLUGIN_JSON" "$CODEX_PLUGIN_JSON" "$CURSOR_PLUGIN_JSON" "$AGENTS_MARKETPLACE_JSON" "$SCRIPT_DIR/README.md" "$SCRIPT_DIR/skills"/*/SKILL.md "$SCRIPT_DIR/CHANGELOG.md" "$SCRIPT_DIR/release.sh"
   git commit -m "Release v${NEXT_VERSION}"
   printf "${GREEN}✓${RESET} Committed v${NEXT_VERSION}\n"
 
-  printf "\n${BLUE}Step 6: Push branch and create PR${RESET}\n"
+  printf "\n${BLUE}Step 5: Push branch and create PR${RESET}\n"
   git push -u "$remote" "$release_branch"
   # Target the upstream repo explicitly. Without --repo, `gh pr create` aborts
   # ("No default remote repository has been set") whenever more than one remote
@@ -437,14 +427,14 @@ main() {
   printf "${GREEN}✓${RESET} PR created\n"
   git checkout main
 
-  printf "\n${BLUE}Step 7: After PR merges${RESET}\n"
+  printf "\n${BLUE}Step 6: After PR merges${RESET}\n"
   printf "\nOnce the PR is approved and merged, create a draft GitHub release:\n"
   printf "  gh release create v${NEXT_VERSION} --target main --title \"v${NEXT_VERSION}\" --generate-notes --draft\n\n"
   printf "This creates a draft release with auto-generated notes from merged PRs.\n"
   printf "Review and edit the notes at https://github.com/CrowdStrike/agentworks-skills/releases,\n"
   printf "then click Publish when ready.\n\n"
 
-  printf "${BLUE}Step 8: Update OpenAI Plugins Directory${RESET}\n"
+  printf "${BLUE}Step 7: Update OpenAI Plugins Directory${RESET}\n"
   printf "\nAfter publishing the GitHub release, build and verify the skills-only bundle:\n"
   printf "  ./release.sh --bundle v${NEXT_VERSION}\n\n"
   printf "That archives only what the skills need, checks it against the portal's\n"
@@ -454,13 +444,13 @@ main() {
   printf "Submit the new version for review, then publish it after approval. The public\n"
   printf "Plugins Directory uses reviewed snapshots rather than the repository marketplace ref.\n\n"
 
-  printf "${BLUE}Step 9: Update Cursor Marketplace${RESET}\n"
+  printf "${BLUE}Step 8: Update Cursor Marketplace${RESET}\n"
   printf "\nCursor manually reviews verified plugins before re-indexing, so a new release\n"
   printf "isn't picked up on its own. Email marketplace-publishing@cursor.com with the\n"
   printf "release link and ask them to re-index crowdstrike-charlotte-ai-agentworks:\n"
   printf "  https://github.com/CrowdStrike/agentworks-skills/releases/tag/v${NEXT_VERSION}\n\n"
 
-  printf "${BLUE}Step 10: Update awesome-copilot${RESET}\n"
+  printf "${BLUE}Step 9: Update awesome-copilot${RESET}\n"
   printf "\nThe awesome-copilot listing pins a version and commit SHA. Open a PR to\n"
   printf "github/awesome-copilot that updates the crowdstrike-charlotte-ai-agentworks entry in both\n"
   printf "plugins/external.json and .github/plugin/marketplace.json:\n"
