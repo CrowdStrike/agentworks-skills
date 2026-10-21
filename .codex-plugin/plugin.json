@@ -1,6 +1,6 @@
 {
   "name": "crowdstrike-charlotte-ai-agentworks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CrowdStrike Charlotte AI AgentWorks skills for creating, managing, and invoking AI agents via external Falcon API Gateway endpoints. Includes agent lifecycle management, invocation, knowledge base operations, and discovery of models/tools/templates.",
   "author": {
     "name": "CrowdStrike",

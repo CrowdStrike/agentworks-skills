@@ -10,10 +10,10 @@
       "source": {
         "source": "url",
         "url": "https://github.com/CrowdStrike/agentworks-skills.git",
-        "ref": "v1.0.0"
+        "ref": "v1.0.1"
       },
       "description": "CrowdStrike Charlotte AI AgentWorks skills for creating, managing, and invoking AI agents via external Falcon API Gateway endpoints.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": {
         "name": "CrowdStrike"
       },

@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "crowdstrike-charlotte-ai-agentworks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Charlotte AI AgentWorks skills for creating, managing, and invoking AI agents. Includes agent lifecycle management, invocation, knowledge base operations, and discovery of models/tools/templates.",
   "author": {
     "name": "CrowdStrike",

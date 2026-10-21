@@ -11,8 +11,8 @@ description: >
   DO NOT TRIGGER for enable/disable agent (publish-only per v1 scope) or delete operations.
   DO NOT TRIGGER for agents defined in a Falcon Foundry app (manifest.yml `ai.agents`, `foundry agents create`);
   foundry-redirect handles those.
-version: 1.0.0
-updated: 2026-08-21
+version: 1.0.1
+updated: 2026-10-21
 tags: [agentworks, charlotte, agents, lifecycle, falcon, analysis, optimization]
 author: CrowdStrike
 license: MIT

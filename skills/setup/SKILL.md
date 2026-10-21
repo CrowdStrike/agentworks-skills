@@ -5,8 +5,8 @@ description: >
   configuration or environment variable setup.
   TRIGGER when user explicitly asks to "set up Charlotte AI AgentWorks", "configure credentials", or has auth errors.
   DO NOT TRIGGER for general Charlotte AI AgentWorks usage (orchestrator handles routing).
-version: 1.0.0
-updated: 2026-08-21
+version: 1.0.1
+updated: 2026-10-21
 tags: [agentworks, setup, credentials, authentication]
 author: CrowdStrike
 license: MIT
