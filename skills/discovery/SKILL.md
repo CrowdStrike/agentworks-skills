@@ -5,8 +5,8 @@ description: >
   Read-only queries using native FalconPy classes (`Models`, `Tools`, `AgentTemplates`, `AgentVersions`, `Spans`).
   TRIGGER when user asks to list/query/discover models, tools, templates, versions, or spans.
   DO NOT TRIGGER for agent creation/invocation (use agents/invocation skills) or knowledge bases.
-version: 1.0.0
-updated: 2026-08-21
+version: 1.0.1
+updated: 2026-10-21
 tags: [agentworks, charlotte, discovery, models, tools, templates, falcon]
 author: CrowdStrike
 license: MIT

@@ -9,8 +9,8 @@ description: >
   use agents, invocation, or discovery skills.
   DO NOT TRIGGER for knowledge bases defined in a Falcon Foundry app (manifest.yml `ai.knowledge_bases`,
   `foundry knowledge-bases create`); foundry-redirect handles those.
-version: 1.0.0
-updated: 2026-08-21
+version: 1.0.1
+updated: 2026-10-21
 tags: [agentworks, charlotte, knowledge-base, files, audit, falcon]
 author: CrowdStrike
 license: MIT

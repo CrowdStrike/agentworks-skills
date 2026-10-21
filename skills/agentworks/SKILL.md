@@ -8,8 +8,8 @@ description: >
   DO NOT TRIGGER for other CrowdStrike products (Fusion, Foundry, etc.). Agents or knowledge bases defined in a
   Falcon Foundry app (manifest.yml `ai.agents` / `ai.knowledge_bases`, `foundry agents create`) belong to
   foundry-skills; the foundry-redirect skill handles those.
-version: 1.0.0
-updated: 2026-08-21
+version: 1.0.1
+updated: 2026-10-21
 tags: [agentworks, charlotte, orchestrator, routing]
 author: CrowdStrike
 license: MIT

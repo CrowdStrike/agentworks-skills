@@ -7,8 +7,8 @@ description: >
   TRIGGER when user asks to invoke an agent, run an agent, get agent results/messages, or cancel an invocation.
   DO NOT TRIGGER for agent creation (use agents skill), knowledge bases (use knowledge-bases skill),
   or discovery (use discovery skill).
-version: 1.0.0
-updated: 2026-08-21
+version: 1.0.1
+updated: 2026-10-21
 tags: [agentworks, charlotte, invocation, streaming, falcon]
 author: CrowdStrike
 license: MIT
