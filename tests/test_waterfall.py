@@ -58,6 +58,10 @@ class TestRenderWaterfall:
         assert waterfall._credits({"attributes": {}}) == "—"  # pylint: disable=protected-access
         assert waterfall._credits({"attributes": {"cost.raw_credit_cents": "n/a"}}) == "—"  # pylint: disable=protected-access
 
+    def test_null_attributes_render_a_dash_for_credits(self):
+        row = next(line for line in lines([span("root", attributes=None)]) if line.startswith("root"))
+        assert "—" in row
+
     def test_orphan_is_rendered_as_its_own_root(self):
         """A span whose parent isn't in the set must still appear."""
         out = "\n".join(lines([span("root"), span("orphan", "missing-parent", name="lost")]))

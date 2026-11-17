@@ -184,6 +184,24 @@ class TestInvoke:
         body = getattr(inv_client, method).call_args.kwargs["body"]
         assert {"role": "user", "content": "hello"} in body["messages"]
 
+    def test_execution_controls_are_sent_and_echoed(self, inv_client, run_main, module, args, method):
+        getattr(inv_client, method).return_value = ok({"resources": [invocation("queued")]})
+        _, out, _ = run_main(module, *args, "--message", "hi", "--deadline-seconds", "90", "--max-cost", "250")
+        body = getattr(inv_client, method).call_args.kwargs["body"]
+        assert (body["deadline_seconds"], body["credit_cents_limit"]) == (90, 250)
+        assert "Deadline: 90 seconds" in out and "250 credit cents (2.50 Charlotte credits)" in out
+
+    def test_controls_are_omitted_unless_given(self, inv_client, run_main, module, args, method):
+        getattr(inv_client, method).return_value = ok({"resources": [invocation("queued")]})
+        run_main(module, *args, "--message", "hi")
+        body = getattr(inv_client, method).call_args.kwargs["body"]
+        assert "deadline_seconds" not in body and "credit_cents_limit" not in body
+
+    def test_no_resource_returned_exits_1(self, inv_client, run_main, module, args, method):
+        getattr(inv_client, method).return_value = ok({"resources": []})
+        code, _, err_out = run_main(module, *args, "--message", "hi")
+        assert code == 1 and "no resource returned" in err_out
+
     def test_deadline_below_90s_is_rejected_before_any_call(self, inv_client, run_main, module, args, method):
         code, _, err_out = run_main(module, *args, "--message", "hi", "--deadline-seconds", "89")
         assert code == 1

@@ -6,6 +6,7 @@ cost and output, and a tool + tool_response pair per tool call), and every expec
 number is worked out from those fixtures by hand.
 """
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,7 +14,7 @@ import pytest
 import analyze_agent
 import inspect_invocation
 import list_invocations
-from conftest import ok
+from conftest import err, ok
 
 
 def root(trace, inv, start, model="bedrock.claude-5-opus", agent_id: str | None = "agent-1", prompt="p1", **extra):
@@ -106,6 +107,13 @@ class TestAnalyzeSpans:
         spans = trace("t1", "inv-1", "2026-11-16T10:00:00Z", "2026-11-16T10:00:01Z")
         result = analyze_agent.analyze_spans(spans)
         assert result["saw_tool_telemetry"] is False and result["tool_usage"] == {}
+
+    def test_spans_with_null_attributes_are_analyzed(self):
+        """The API can return attributes: null; .get("attributes", {}) then yields None."""
+        spans = trace("t1", "inv-1", "2026-11-16T10:00:00Z", "2026-11-16T10:00:02Z", calls=[{}])
+        spans.append({"id": "bare", "trace_id": "t1", "span_type": "llm", "status": "ok", "attributes": None})
+        result = analyze_agent.analyze_spans(spans)
+        assert result["total_spans"] == 5 and result["tool_usage"] == {"mcp/x/search": 1}
 
     def test_empty_input(self):
         result = analyze_agent.analyze_spans([])
@@ -258,6 +266,19 @@ class TestInspectInvocation:
         _, out, _ = run_main(inspect_invocation, "--invocation-id", "inv-1", "--tool-output-only", "--errors-only")
         assert "=== Tool Outputs (1 error tool span(s)) ===" in out
 
+    def test_tool_span_with_null_attributes_is_still_listed(self, inspect_api, run_main):
+        responses = [s for s in inspect_api if s["span_type"] == "tool_response"]
+        responses[0]["attributes"] = None
+        code, out, _ = run_main(inspect_invocation, "--invocation-id", "inv-1", "--tool-output-only")
+        assert code == 0
+        assert "Tool Outputs (3 tool spans)" in out and "Tool #3" in out
+
+    def test_errors_only_with_null_attributes(self, inspect_api, run_main):
+        responses = [s for s in inspect_api if s["span_type"] == "tool_response"]
+        responses[0]["attributes"] = None
+        code, out, _ = run_main(inspect_invocation, "--invocation-id", "inv-1", "--tool-output-only", "--errors-only")
+        assert code == 0 and "Tool Outputs (1 error tool span(s))" in out
+
     def test_unknown_invocation(self, inspect_api, run_main):
         code, out, err_out = run_main(inspect_invocation, "--invocation-id", "inv-nope")
         assert code == 1
@@ -286,6 +307,10 @@ class TestListInvocations:
         spans = [root("t1", "inv-1", "2026-11-16T10:00:00Z", agent_id=None)]
         assert not list_invocations.extract_invocations(spans, target_agent_id="agent-1")
 
+    def test_trace_stats_with_null_attributes(self):
+        spans = [dict(root("t1", "inv-1", "2026-11-16T10:00:00Z"), attributes=None)]
+        assert list_invocations._trace_stats(spans)["status"] == "success"  # pylint: disable=protected-access
+
     def test_trace_stats_flag_errors_and_duration(self):
         spans = trace("t1", "inv-1", "2026-11-16T10:00:00Z", "2026-11-16T10:00:05Z", calls=[{"error": True}])
         for s in spans:
@@ -295,3 +320,62 @@ class TestListInvocations:
         assert stats["status"] == "error"
         assert stats["duration_ms"] == 5000.0
         assert stats["span_count"] == 4
+
+
+class TestListInvocationsMain:
+    @pytest.fixture
+    def agents(self, monkeypatch):
+        client = MagicMock()
+        client.get_studio_agents.return_value = ok({"resources": [{"id": "agent-1", "active_version": {"name": "Hunter"}}]})
+        monkeypatch.setattr(list_invocations, "get_agents_client", lambda: client)
+        return client
+
+    def test_failed_tool_call_marks_the_invocation_as_error(self, spans_api, agents, run_main):
+        """The root spans say "ok"; only the full trace shows the tool call that failed."""
+        spans_api += trace("good", "inv-1", "2026-11-16T10:00:00Z", "2026-11-16T10:00:02Z", calls=[{}])
+        spans_api += trace("bad", "inv-2", "2026-11-16T11:00:00Z", "2026-11-16T11:00:05Z", calls=[{"error": True}])
+        code, out, _ = run_main(list_invocations, "--agent-id", "agent-1", "--json")
+        invs = {i["invocation_id"]: i for i in json.loads(out)["invocations"]}
+        assert code == 0
+        assert (invs["inv-1"]["status"], invs["inv-2"]["status"]) == ("success", "error")
+        assert invs["inv-2"]["span_count"] == 4 and invs["inv-2"]["duration_ms"] == 5000.0
+
+    def test_newest_first_and_limit(self, spans_api, agents, run_main):
+        for i in range(4):
+            spans_api += trace(f"t{i}", f"inv-{i}", f"2026-11-1{i}T10:00:00Z", f"2026-11-1{i}T10:00:01Z")
+        _, out, _ = run_main(list_invocations, "--agent-id", "agent-1", "--limit", "2", "--json")
+        assert [i["invocation_id"] for i in json.loads(out)["invocations"]] == ["inv-3", "inv-2"]
+
+    def test_inline_runs_are_labelled_in_the_text_output(self, spans_api, agents, run_main):
+        spans_api += trace("t1", "inv-1", "2026-11-16T10:00:00Z", "2026-11-16T10:00:01Z", agent_id=None)
+        _, out, _ = run_main(list_invocations, "--agent-id", "agent-1")
+        assert "Invocation: inv-1 (inline, matched by agent name)" in out
+
+    def test_name_lookup_failure_still_lists_runs_matched_by_id(self, spans_api, agents, run_main):
+        agents.get_studio_agents.return_value = err(403, "missing scope")
+        spans_api += trace("t1", "inv-1", "2026-11-16T10:00:00Z", "2026-11-16T10:00:01Z")
+        spans_api += trace("t2", "inv-2", "2026-11-16T10:00:00Z", "2026-11-16T10:00:01Z", agent_id=None)
+        code, out, err_out = run_main(list_invocations, "--agent-id", "agent-1", "--json")
+        assert code == 0
+        assert "inline invocations will not be matched" in err_out
+        assert [i["invocation_id"] for i in json.loads(out)["invocations"]] == ["inv-1"]
+
+    def test_no_invocations(self, spans_api, agents, run_main):
+        code, out, err_out = run_main(list_invocations, "--agent-id", "agent-1", "--days", "3", "--json")
+        assert code == 0
+        assert json.loads(out) == {"agent_id": "agent-1", "invocations": []}
+        assert "No invocations found for agent agent-1 in the last 3 day(s)." in err_out
+
+    @pytest.mark.parametrize("limit", ["0", "-1"])
+    def test_limit_below_one_is_rejected(self, spans_api, agents, run_main, limit):
+        code, _, err_out = run_main(list_invocations, "--agent-id", "agent-1", "--limit", limit)
+        assert code != 0 and "--limit must be >= 1" in err_out
+
+    def test_a_trace_at_the_span_cap_is_refetched_alone_with_a_warning(self, spans_api, agents, monkeypatch, run_main, capsys):
+        monkeypatch.setattr(list_invocations, "MAX_SPANS_PER_BATCH", 3)
+        monkeypatch.setattr(list_invocations, "MAX_SPANS_PER_TRACE", 3)
+        spans_api += trace("big", "inv-1", "2026-11-16T10:00:00Z", "2026-11-16T10:00:02Z", calls=[{}, {}])
+        code, _, err_out = run_main(list_invocations, "--agent-id", "agent-1", "--json")
+        assert code == 0
+        assert "trace big has at least 3 spans" in err_out
+

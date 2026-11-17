@@ -86,7 +86,7 @@ def main() -> None:
         print(f"  Trace ID: {trace_id[:8]}...")
 
         # Show cost if available
-        attrs = span.get("attributes", {})
+        attrs = span.get("attributes") or {}
         if "cost.raw_credit_cents" in attrs:
             cents = attrs["cost.raw_credit_cents"]
             credit_total = cents / 100 if isinstance(cents, (int, float)) else 0

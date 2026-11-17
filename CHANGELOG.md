@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   omits its pagination total, and no longer crash on an agent, knowledge base, or file with a null name
 - `kb_list.py --modified-since`/`--modified-before` now compare dates as instants and reject a value that isn't an
   ISO date, instead of comparing text and silently matching nothing
+- `analyze_agent.py`, `inspect_invocation.py`, `spans_get.py`, and the trace waterfall no longer crash on a span
+  whose `attributes` is null
+- `probe_span_filters.py` now tests the filter syntax the scripts use, and says no change is needed when it works
+  instead of recommending a different syntax
 - Thirteen agent, discovery, and invoke scripts now report an API error as a single `ERROR: HTTP <status>: ...`
   line and exit 1, like the other scripts, instead of printing a Python traceback
 

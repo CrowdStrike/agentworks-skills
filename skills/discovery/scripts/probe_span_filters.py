@@ -31,6 +31,10 @@ _bootstrap.ensure_deps(__file__)
 from auth import call_native, get_spans_client  # pylint: disable=wrong-import-position
 
 
+# The time bound every script adds to a span query.
+SCRIPT_TIME_FILTER = "start_time:>='now-24h'"
+
+
 def probe_filter(filter_expr: str) -> tuple[bool, int, str]:
     """Test a filter and return (success, result_count, error_message)."""
     params = {"filter": filter_expr, "limit": "5"}
@@ -67,7 +71,10 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
     # Group 1: Empty/minimal filters
     tests.append(("Empty filter (relies on API default)", ""))
 
-    # Group 2: Date math expressions (as documented)
+    # Group 2: The syntax the scripts send today (discovery_helpers._ensure_span_time_filter).
+    tests.append(("Scripts' syntax: quoted date math", SCRIPT_TIME_FILTER))
+
+    # Group 3: Unquoted date math expressions
     tests.append(("Date math: now-1h", "start_time:>=now-1h"))
     tests.append(("Date math: now-24h", "start_time:>=now-24h"))
     tests.append(("Date math: now-7d", "start_time:>=now-7d"))
@@ -100,6 +107,7 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
 
     # Group 8: With trace_id (if provided)
     if args.trace_id:
+        tests.append(("Scripts' syntax: trace ID + date math", f"trace_id:'{args.trace_id}'+{SCRIPT_TIME_FILTER}"))
         tests.append(("Trace ID only", f'trace_id:"{args.trace_id}"'))
         tests.append(("Trace ID + date math", f'trace_id:"{args.trace_id}"+start_time:>=now-24h'))
         tests.append(("Trace ID + RFC3339", f'trace_id:"{args.trace_id}"+start_time:>="{one_day_ago}"'))
@@ -166,7 +174,9 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
     else:
         best = None
 
-    if best:
+    if any(r[1] == SCRIPT_TIME_FILTER for r in successful):
+        print(f"\nThe scripts already use a working syntax ({SCRIPT_TIME_FILTER}). No change is needed.")
+    elif best:
         print("\nUse this filter format:")
         print(f"  {best[1]}")
         print("\nUpdate scripts to use this syntax instead of current format.")

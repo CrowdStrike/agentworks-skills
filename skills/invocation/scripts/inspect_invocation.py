@@ -177,7 +177,7 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-statements  # 
     if args.errors_only:
         tool_spans = [
             s for s in tool_spans
-            if s.get("status") == "error" or s.get("attributes", {}).get("tool.result_is_error") is True
+            if s.get("status") == "error" or (s.get("attributes") or {}).get("tool.result_is_error") is True
         ]
 
     if tool_spans:  # pylint: disable=too-many-nested-blocks  # refactor once covered by tests
@@ -187,7 +187,7 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-statements  # 
             name = span.get("name", "(unnamed)")
             span_type = span.get("span_type", "")
             duration_ms = span.get("duration_ms")
-            attrs = span.get("attributes", {})
+            attrs = span.get("attributes") or {}
 
             print(f"Tool #{i}: {name}")
             print(f"  Type: {span_type}")
