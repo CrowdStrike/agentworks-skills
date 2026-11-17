@@ -21,13 +21,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_kb_files_client
+from auth import call_native, get_kb_files_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: upload a file to a knowledge base."""
     parser = argparse.ArgumentParser(description="Upload a file to a knowledge base")
     parser.add_argument("--kb-id", required=True, help="Knowledge base ID")
     parser.add_argument("--file", required=True, help="Path to file to upload")

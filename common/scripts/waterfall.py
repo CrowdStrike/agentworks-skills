@@ -4,6 +4,7 @@ Waterfall renderer for Charlotte AI AgentWorks trace spans.
 Renders a monospace tree visualization of spans with duration, credits, and timeline bars.
 """
 
+import math
 from datetime import datetime
 from typing import Any
 
@@ -16,7 +17,7 @@ NAME_WIDTH = 32
 TYPE_WIDTH = 18
 
 
-class Node:
+class Node:  # pylint: disable=too-few-public-methods  # plain tree node
     """Tree node for span hierarchy."""
     def __init__(self, span: dict[str, Any]):
         self.span = span
@@ -78,7 +79,7 @@ def _timeline_bar(start_ms: float, dur_ms: float, trace_start: float, trace_tota
     Format: │░░░████░░░│  (20 chars wide)
     """
     denom = trace_total if trace_total > 0 else 1
-    offset = max(0, start_ms - trace_start) if start_ms == start_ms else 0  # NaN check
+    offset = max(0, start_ms - trace_start) if not math.isnan(start_ms) else 0
     dur = float(dur_ms) if dur_ms and dur_ms > 0 else 0
 
     lead = round((offset / denom) * BAR_WIDTH)
@@ -87,8 +88,7 @@ def _timeline_bar(start_ms: float, dur_ms: float, trace_start: float, trace_tota
     # Ensure fit within BAR_WIDTH
     if lead + fill > BAR_WIDTH:
         lead = max(0, BAR_WIDTH - fill)
-    if fill > BAR_WIDTH:
-        fill = BAR_WIDTH
+    fill = min(fill, BAR_WIDTH)
 
     trail = max(0, BAR_WIDTH - lead - fill)
 
@@ -98,7 +98,7 @@ def _timeline_bar(start_ms: float, dur_ms: float, trace_start: float, trace_tota
 def _start_key(span: dict[str, Any]) -> float:
     """Sort key: span start in ms, with spans that have no valid start sorted last."""
     start = parse_ms(span.get("start_time"))
-    return start if start == start else float("inf")  # NaN check
+    return start if not math.isnan(start) else float("inf")
 
 
 def _build_forest(spans: list[dict[str, Any]]) -> list[Node]:
@@ -164,8 +164,8 @@ def _render_trace(trace_id: str, spans: list[dict[str, Any]]) -> str:
     # Calculate trace time window
     starts = [parse_ms(s.get("start_time")) for s in spans]
     ends = [parse_ms(s.get("end_time")) for s in spans]
-    starts_valid = [s for s in starts if s == s]  # Filter NaN
-    ends_valid = [e for e in ends if e == e]
+    starts_valid = [s for s in starts if not math.isnan(s)]
+    ends_valid = [e for e in ends if not math.isnan(e)]
 
     trace_start = min(starts_valid) if starts_valid else 0
     trace_end = max(ends_valid) if ends_valid else trace_start
@@ -174,7 +174,10 @@ def _render_trace(trace_id: str, spans: list[dict[str, Any]]) -> str:
     lines: list[str] = []
 
     # Header
-    header = f"{_pad_right('NAME', NAME_WIDTH)}  {_pad_right('TYPE', TYPE_WIDTH)}  {_pad_left('CREDITS', 7)}  {_pad_left('DURATION', 8)}  TIMELINE"
+    header = (
+        f"{_pad_right('NAME', NAME_WIDTH)}  {_pad_right('TYPE', TYPE_WIDTH)}  "
+        f"{_pad_left('CREDITS', 7)}  {_pad_left('DURATION', 8)}  TIMELINE"
+    )
     lines.append(f"Trace {str(trace_id or 'unknown')[:8]}   {len(spans)} spans   total {_humanize_duration(total)}")
     lines.append(header)
 
@@ -186,7 +189,7 @@ def _render_trace(trace_id: str, spans: list[dict[str, Any]]) -> str:
         span_type = _truncate(node.span.get("span_type") or "", TYPE_WIDTH)
         credits_str = _credits(node.span)
         duration_str = _humanize_duration(node.span.get("duration_ms"))
-        bar = _timeline_bar(
+        bar_str = _timeline_bar(
             parse_ms(node.span.get("start_time")),
             node.span.get("duration_ms") or 0,
             trace_start,
@@ -198,7 +201,7 @@ def _render_trace(trace_id: str, spans: list[dict[str, Any]]) -> str:
                      f"{_pad_right(span_type, TYPE_WIDTH)}  "
                      f"{_pad_left(credits_str, 7)}  "
                      f"{_pad_left(duration_str, 8)}  "
-                     f"{bar}{error_mark}")
+                     f"{bar_str}{error_mark}")
 
     def walk(root: Node, is_last_root: bool) -> None:
         # Explicit stack of (node, prefix, is_last, is_root); children are pushed in reverse so

@@ -36,12 +36,12 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agents_client
-from discovery_helpers import TOOL_RESPONSE_SPAN_TYPE, hydrate_spans, query_span_ids
-from formatting import humanize_duration
+from auth import call_native, get_agents_client  # pylint: disable=wrong-import-position
+from discovery_helpers import TOOL_RESPONSE_SPAN_TYPE, hydrate_spans, query_span_ids  # pylint: disable=wrong-import-position
+from formatting import humanize_duration  # pylint: disable=wrong-import-position
 
 # Upper bounds on span IDs collected per query; pagination (500 per page) fills them.
 MAX_ROOT_SPANS = 2000
@@ -224,6 +224,7 @@ def extract_agent_version(span: dict) -> dict:
 
 def analyze_spans(spans: list[dict]) -> dict:
     """Analyze spans to extract patterns and metrics."""
+    # pylint: disable=too-many-branches,too-many-locals,too-many-statements  # refactor once covered by tests
     # Group by trace_id (invocation)
     by_trace = defaultdict(list)
     for span in spans:
@@ -232,7 +233,7 @@ def analyze_spans(spans: list[dict]) -> dict:
             by_trace[trace_id].append(span)
 
     # Get execution patterns first (needs by_trace)
-    execution_patterns = analyze_execution_patterns(spans, by_trace)
+    execution_patterns = analyze_execution_patterns(by_trace)
 
     # Extract metrics
     total_traces = len(by_trace)
@@ -304,10 +305,10 @@ def analyze_spans(spans: list[dict]) -> dict:
         if starts and ends:
             # Parse timestamps
             try:
-                start_ms = min([datetime.fromisoformat(t.replace('Z', '+00:00')).timestamp() * 1000
-                               for t in starts])
-                end_ms = max([datetime.fromisoformat(t.replace('Z', '+00:00')).timestamp() * 1000
-                             for t in ends])
+                start_ms = min(datetime.fromisoformat(t.replace('Z', '+00:00')).timestamp() * 1000
+                               for t in starts)
+                end_ms = max(datetime.fromisoformat(t.replace('Z', '+00:00')).timestamp() * 1000
+                             for t in ends)
                 duration = end_ms - start_ms
                 trace_durations.append(duration)
 
@@ -399,8 +400,9 @@ def analyze_spans(spans: list[dict]) -> dict:
     }
 
 
-def analyze_execution_patterns(spans: list[dict], by_trace: dict) -> dict:
+def analyze_execution_patterns(by_trace: dict) -> dict:
     """Analyze actual execution patterns from spans to understand agent behavior."""
+    # pylint: disable=too-many-branches,too-many-locals  # refactor once covered by tests
     patterns = {
         "tool_sequences": [],
         "error_contexts": [],
@@ -528,6 +530,7 @@ def analyze_execution_patterns(spans: list[dict], by_trace: dict) -> dict:
 
 def generate_recommendations(analysis: dict, agent_details: dict | None, execution_patterns: dict) -> list[str]:
     """Generate improvement recommendations based on analysis."""
+    # pylint: disable=too-many-branches,too-many-locals  # refactor once covered by tests
     recommendations = []
 
     # Error rate analysis
@@ -669,7 +672,8 @@ def _slim_for_json(analysis: dict) -> dict:
     return slim
 
 
-def main() -> None:
+def main() -> None:  # pylint: disable=too-many-branches,too-many-locals,too-many-statements  # refactor once covered by tests
+    """CLI entry point: analyze agent execution patterns and suggest improvements."""
     parser = argparse.ArgumentParser(
         description="Analyze agent execution patterns and suggest improvements",
         epilog="Queries spans by agent_id, analyzes tool usage and errors, generates recommendations"
@@ -761,13 +765,13 @@ def main() -> None:
     print("=" * 60)
     print()
 
-    print(f"📊 Summary")
+    print("📊 Summary")
     print(f"  Traces analyzed: {analysis['total_traces']}")
     print(f"  Total spans: {analysis['total_spans']}")
     print(f"  Unique invocations: {len(analysis['invocation_ids'])}")
     print()
 
-    print(f"✅ Trace Status")
+    print("✅ Trace Status")
     for status, count in analysis["trace_statuses"].items():
         pct = count / analysis["total_traces"] * 100 if analysis["total_traces"] > 0 else 0
         print(f"  {status}: {count} ({pct:.1f}%)")
@@ -783,7 +787,7 @@ def main() -> None:
 
     # Version analysis
     by_version = analysis.get("by_version", {})
-    if len(by_version) > 1:
+    if len(by_version) > 1:  # pylint: disable=too-many-nested-blocks  # refactor once covered by tests
         print(f"🔄 Multiple Versions Detected ({len(by_version)} versions)")
         print()
 
@@ -793,7 +797,7 @@ def main() -> None:
             by_version.items(),
             key=lambda x: min((_ts_ms(t["start_time"]) for t in x[1]["traces"]), default=float("inf")),
         )
-        for i, (version_sig, version_data) in enumerate(versions, 1):
+        for i, (_, version_data) in enumerate(versions, 1):
             definition = version_data["definition"]
             traces = version_data["traces"]
             durations = version_data["durations"]
@@ -809,7 +813,8 @@ def main() -> None:
             print(f"    Temperature: {definition.get('model_config', {}).get('temperature', 'N/A')}")
             print(f"    Max tokens: {definition.get('model_config', {}).get('max_tokens', 'N/A')}")
             print(f"    Traces: {len(traces)} ({errors} errors)")
-            print(f"    Avg duration: {humanize_duration(avg_duration)} (min: {humanize_duration(min_duration)}, max: {humanize_duration(max_duration)})")
+            print(f"    Avg duration: {humanize_duration(avg_duration)} "
+                  f"(min: {humanize_duration(min_duration)}, max: {humanize_duration(max_duration)})")
 
             if traces:
                 trace_starts = [t["start_time"] for t in traces if t["start_time"]]
@@ -832,7 +837,8 @@ def main() -> None:
 
                 if ratio > 2 or ratio < 0.5:
                     factor = ratio if ratio > 1 else (1 / ratio if ratio > 0 else 0)
-                    print(f"  ⚠️ Performance Changed: Version 2 is {factor:.1f}x {'slower' if ratio > 1 else 'faster'} than Version 1")
+                    direction = "slower" if ratio > 1 else "faster"
+                    print(f"  ⚠️ Performance Changed: Version 2 is {factor:.1f}x {direction} than Version 1")
                     print(f"     Version 1 avg: {humanize_duration(v1_avg)}")
                     print(f"     Version 2 avg: {humanize_duration(v2_avg)}")
                     print()
@@ -847,7 +853,9 @@ def main() -> None:
                     if len(def1.get("tools") or []) != len(def2.get("tools") or []):
                         changes.append(f"Tools: {len(def1.get('tools') or [])} → {len(def2.get('tools') or [])}")
                     if def1.get("model_config", {}).get("temperature") != def2.get("model_config", {}).get("temperature"):
-                        changes.append(f"Temperature: {def1.get('model_config', {}).get('temperature')} → {def2.get('model_config', {}).get('temperature')}")
+                        temp1 = def1.get('model_config', {}).get('temperature')
+                        temp2 = def2.get('model_config', {}).get('temperature')
+                        changes.append(f"Temperature: {temp1} → {temp2}")
 
                     if changes:
                         print("     Changes detected:")
@@ -856,10 +864,10 @@ def main() -> None:
                         print()
 
     elif len(by_version) == 1:
-        print(f"✅ Single Version (consistent configuration)")
+        print("✅ Single Version (consistent configuration)")
         print()
 
-    print(f"⏱️ Invocation Duration")
+    print("⏱️ Invocation Duration")
     avg = humanize_duration(analysis["trace_durations"]["avg_ms"])
     max_d = humanize_duration(analysis["trace_durations"]["max_ms"])
     print(f"  Average: {avg}")
@@ -867,7 +875,7 @@ def main() -> None:
     print()
 
     if analysis["tool_usage"]:
-        print(f"🔧 Tool Usage (top 10)")
+        print("🔧 Tool Usage (top 10)")
         for tool, count in sorted(analysis["tool_usage"].items(),
                                    key=lambda x: x[1], reverse=True)[:10]:
             error_count = analysis["tool_errors"].get(tool, 0)

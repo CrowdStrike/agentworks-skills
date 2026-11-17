@@ -5,6 +5,7 @@ Durations, timestamps and "modified by" labels are rendered the same way by ever
 list/inspect/analyze script, so they live here instead of being copied per script.
 """
 
+import math
 from datetime import datetime
 from typing import Any
 
@@ -17,7 +18,7 @@ def humanize_duration(ms: float | None) -> str:
 
     Returns "—" for a missing, NaN, or negative value.
     """
-    if ms is None or ms != ms or ms < 0:  # ms != ms is the NaN check
+    if ms is None or math.isnan(ms) or ms < 0:
         return "—"
     if ms >= 60000:
         minutes = int(ms // 60000)

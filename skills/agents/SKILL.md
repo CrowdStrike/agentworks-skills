@@ -97,17 +97,7 @@ When you inspect an agent using `version_group_id`, `agent_get.py` returns:
 - **Inspection shows production behavior** → You see what's actually running, not work-in-progress
 - **Draft changes are invisible until published** → If an agent was recently modified but not published, you won't see those changes
 
-**Example:**
-```
-Published agent: v1 (system prompt: "You are a security analyst...")
-↓ User modifies agent
-Draft version: v2 (system prompt: "You are an expert security analyst...")
-↓ Inspect with agent_get.py
-Result: Shows v1 (published), NOT v2 (draft)
-↓ Publish v2
-↓ Inspect with agent_get.py
-Result: Shows v2 (now published)
-```
+See "Which version agent_get.py returns" in [references/api-reference.md](references/api-reference.md) for a walkthrough.
 
 **Example from tool discovery:**
 ```
@@ -116,7 +106,7 @@ Result: Shows v2 (now published)
   - Version group: 4ff1fc7a-2181-405d-a6d7-95b549eb7a10    ← USE THIS
 ```
 
-#### Workflow for Agent Inspection:
+#### Workflow for Agent Inspection
 
 1. **Extract `version_group_id`** (NOT `agent_id` or `id`) from the metadata
 2. **Get the complete definition**:
@@ -274,56 +264,10 @@ silently truncate — tell the user how many more there are and ask if they want
 via AskUserQuestion or a plain question). If they say yes, re-run with `--offset <next_offset>`
 (same filters/sort) to get the next page.
 
-**Always paste the resulting table directly into your chat response — do not just point at the
-tool output.** Script stdout is plain text to the harness; it is not markdown-rendered. Only text
-you write directly in your own reply renders as an actual table for the user.
 
 ## Input/Output Format Types
 
-Agents support structured input validation and output formatting:
-
-### Input Formats
-- **`unstructured`** (default): Free-form text or JSON input, no schema validation
-- **`json_with_schema`**: JSON input validated against a JSON Schema
-
-### Output Formats
-- **`unstructured`** (default): Free-form text response
-- **`html`**: HTML-formatted response
-- **`markdown`**: Markdown-formatted response
-- **`json`**: JSON-formatted response (no schema enforcement)
-- **`json_with_schema`**: JSON response validated against a JSON Schema
-
-### Usage Examples
-
-**Add input validation:**
-```bash
-../../scripts/python.sh scripts/agent_upsert.py \
-  --id <agent-id> \
-  --input-format json_with_schema \
-  --input-schema '{
-    "type": "object",
-    "properties": {
-      "prompt": {"type": "string", "description": "User question"},
-      "severity": {"type": "string", "enum": ["low", "medium", "high"]}
-    },
-    "required": ["prompt"]
-  }'
-```
-
-**Request structured JSON output:**
-```bash
-../../scripts/python.sh scripts/agent_upsert.py \
-  --id <agent-id> \
-  --output-format json_with_schema \
-  --output-schema '{
-    "type": "object",
-    "properties": {
-      "risk_score": {"type": "number"},
-      "recommendations": {"type": "array", "items": {"type": "string"}}
-    },
-    "required": ["risk_score"]
-  }'
-```
+Agents accept `unstructured` (default) or `json_with_schema` input, and return `unstructured` (default), `html`, `markdown`, `json`, or `json_with_schema` output. Set them with `agent_upsert.py --input-format/--input-schema` and `--output-format/--output-schema`. See [references/input-output-formats.md](references/input-output-formats.md) for each format and complete schema examples.
 
 ## Usage Examples
 
@@ -419,6 +363,7 @@ See "Core Workflows → Analyze Agent Execution" above for detailed examples.
 |------|---------------|
 | API endpoints and parameters | `references/api-reference.md` |
 | FQL filter syntax | `references/fql-filters.md` |
+| Input/output formats and schema examples | `references/input-output-formats.md` |
 | OAuth 2.0 + scopes | `../setup/SKILL.md` |
 
 ## FalconPy classes

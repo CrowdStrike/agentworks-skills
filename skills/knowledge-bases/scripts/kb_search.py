@@ -32,15 +32,17 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_kb_client
+from auth import call_native, get_kb_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: query knowledge base IDs by FQL filter."""
     parser = argparse.ArgumentParser(description="Query knowledge base IDs by FQL filter")
-    parser.add_argument("--filter", help="FQL filter, single-quoted values, e.g. name:'my-kb' or name:*'*substring*'", default="")
+    parser.add_argument("--filter", default="",
+                        help="FQL filter, single-quoted values, e.g. name:'my-kb' or name:*'*substring*'")
     parser.add_argument("--limit", type=int, default=100, help="Max results (default 100)")
     parser.add_argument("--offset", type=int, default=0, help="Offset for pagination")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")

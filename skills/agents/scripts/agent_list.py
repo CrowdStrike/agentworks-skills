@@ -34,14 +34,15 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agents_client
-from formatting import format_modified_by, format_timestamp
+from auth import call_native, get_agents_client  # pylint: disable=wrong-import-position
+from formatting import format_modified_by, format_timestamp  # pylint: disable=wrong-import-position
 
 
 def fetch_all_ids():
+    """Return every agent ID, paging 100 at a time until the API's pagination total is reached."""
     all_ids = []
     offset, limit = 0, 100
     while True:
@@ -70,6 +71,7 @@ def parse_timestamp(value: str) -> datetime | None:
 
 
 def fetch_entities(ids):
+    """Fetch full agent entities for the given IDs, 100 per request."""
     entities = []
     for i in range(0, len(ids), 100):
         batch = ids[i:i + 100]
@@ -78,14 +80,17 @@ def fetch_entities(ids):
     return entities
 
 
-def main() -> None:
+def main() -> None:  # pylint: disable=too-many-branches,too-many-locals,too-many-statements  # refactor once covered by tests
+    """CLI entry point: list Charlotte AI AgentWorks agents as a table."""
     parser = argparse.ArgumentParser(description="List Charlotte AI AgentWorks agents as a table")
     parser.add_argument("--name-contains", help="Case-insensitive substring filter on agent name")
-    parser.add_argument("--created-by", help="Case-insensitive substring filter on the creator's name/id (client-side; active_version.created_by is not a confirmed FQL field)")
+    parser.add_argument("--created-by", help="Case-insensitive substring filter on the creator's name/id "
+                        "(client-side; active_version.created_by is not a confirmed FQL field)")
     parser.add_argument("--modified-since", help="ISO date/datetime; only agents modified on/after this")
     parser.add_argument("--modified-before", help="ISO date/datetime; only agents modified before this")
     parser.add_argument("--status", choices=["published", "unpublished"], help="Filter by publish status")
-    parser.add_argument("--sort", choices=["name", "updated_at"], default="updated_at", help="Sort field (default: updated_at)")
+    parser.add_argument("--sort", choices=["name", "updated_at"], default="updated_at",
+                        help="Sort field (default: updated_at)")
     parser.add_argument("--order", choices=["asc", "desc"], default="desc", help="Sort order (default: desc)")
     parser.add_argument("--offset", type=int, default=0, help="Skip this many matching agents before paging (default 0)")
     parser.add_argument("--limit", type=int, default=20, help="Max rows to display (default 20)")
@@ -136,7 +141,7 @@ def main() -> None:
             "status": "Published" if is_published else "Unpublished",
         })
 
-    rows.sort(key=lambda r: r[args.sort] or "", reverse=(args.order == "desc"))
+    rows.sort(key=lambda r: r[args.sort] or "", reverse=args.order == "desc")
     total_matched = len(rows)
     page = rows[args.offset: args.offset + args.limit]
     has_more = args.offset + args.limit < total_matched
@@ -162,7 +167,8 @@ def main() -> None:
         desc = r["description"] or ""
         if len(desc) > 80:
             desc = desc[:80] + "..."
-        print(f"| {r['name']} | {desc} | {format_timestamp(r['updated_at'])} | {r['updated_by']} | {r['created_by']} | {r['status']} |")
+        print(f"| {r['name']} | {desc} | {format_timestamp(r['updated_at'])} | "
+              f"{r['updated_by']} | {r['created_by']} | {r['status']} |")
 
     shown_start = args.offset + 1
     shown_end = args.offset + len(page)

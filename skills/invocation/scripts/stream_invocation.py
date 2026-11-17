@@ -24,10 +24,10 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_stream_client
+from auth import call_native, get_stream_client  # pylint: disable=wrong-import-position
 
 
 def parse_sse(raw: bytes | str) -> list[dict]:
@@ -60,6 +60,7 @@ def parse_sse(raw: bytes | str) -> list[dict]:
 
 
 def main() -> None:
+    """CLI entry point: stream invocation results."""
     parser = argparse.ArgumentParser(description="Stream invocation results")
     parser.add_argument("--id", required=True, help="Invocation ID")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")

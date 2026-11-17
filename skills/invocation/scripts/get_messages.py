@@ -26,11 +26,11 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agent_invocation_client, is_transient_error
-from invocation_helpers import TERMINAL_STATUSES
+from auth import call_native, get_agent_invocation_client, is_transient_error  # pylint: disable=wrong-import-position
+from invocation_helpers import TERMINAL_STATUSES  # pylint: disable=wrong-import-position
 
 
 def _fetch(invocation_id: str) -> dict:
@@ -93,6 +93,7 @@ def _wait_for_terminal(invocation_id: str, timeout: int) -> dict:
 
 
 def main() -> None:
+    """CLI entry point: get messages from invocation."""
     parser = argparse.ArgumentParser(description="Get messages from invocation")
     parser.add_argument("--id", required=True, help="Invocation ID")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")

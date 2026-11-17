@@ -32,10 +32,10 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agent_versions_client, get_agents_client
+from auth import call_native, get_agent_versions_client, get_agents_client  # pylint: disable=wrong-import-position
 
 # Distinguishes "flag not passed" from "flag passed with an explicitly empty
 # value" for --description/--system-prompt/--tools/--knowledge-base-ids,
@@ -122,10 +122,12 @@ def build_tool_objects(tool_ids, existing_tools=()):
     return tool_objects
 
 
-def main() -> None:
+def main() -> None:  # pylint: disable=too-many-branches,too-many-locals,too-many-statements  # refactor once covered by tests
+    """CLI entry point: create or update a Charlotte AI AgentWorks agent."""
     parser = argparse.ArgumentParser(
         description="Create or update a Charlotte AI AgentWorks agent",
-        epilog="Note: --model is required for create. Get model IDs with models_search.py, tool IDs with tools_get.py/tools_search.py"
+        epilog="Note: --model is required for create. Get model IDs with models_search.py, "
+               "tool IDs with tools_get.py/tools_search.py"
     )
     parser.add_argument("--id", help="Agent ID (for update; omit to create new)")
     parser.add_argument("--base-version-id", dest="base_version_id",
@@ -140,7 +142,8 @@ def main() -> None:
                        help="Tool IDs to attach (space-separated ID strings from tools_get.py/tools_search.py, "
                             "e.g. 'mcp/gce/falcon_platform:...' -- not UUIDs). Pass with no values to clear all tools.")
     parser.add_argument("--knowledge-base-ids", dest="knowledge_base_ids", nargs="*", default=_UNSET,
-                       help="Knowledge base IDs (space-separated UUIDs from kb_search.py). Pass with no values to clear all KBs.")
+                       help="Knowledge base IDs (space-separated UUIDs from kb_search.py). "
+                            "Pass with no values to clear all KBs.")
     parser.add_argument("--temperature", type=float, help="Model temperature (0.0-1.0, lower = more deterministic)")
     parser.add_argument("--max-tokens", dest="max_tokens", type=int, help="Maximum tokens in response")
     parser.add_argument("--enable-reasoning", dest="enable_reasoning", action=argparse.BooleanOptionalAction,
@@ -164,7 +167,7 @@ def main() -> None:
     # For updates, fetch existing agent to preserve configuration
     existing_version = None
     if args.id:
-        print(f"Fetching existing agent configuration...", file=sys.stderr)
+        print("Fetching existing agent configuration...", file=sys.stderr)
         get_response = call_native(get_agents_client().get_studio_agents, ids=[args.id])
         resources = get_response.get("resources", [])
         if not resources:
@@ -348,7 +351,7 @@ def main() -> None:
 
     print()
     if version_id and agent_id:
-        print(f"To publish this agent:")
+        print("To publish this agent:")
         print(f"  python agent_publish.py --id {agent_id} --version-id {version_id}")
     elif agent_id:
         print(f"Note: Use agent_get.py --ids {agent_id} to see version details")

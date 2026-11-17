@@ -33,14 +33,15 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_kb_files_client
-from formatting import format_modified_by, format_timestamp
+from auth import call_native, get_kb_files_client  # pylint: disable=wrong-import-position
+from formatting import format_modified_by, format_timestamp  # pylint: disable=wrong-import-position
 
 
 def fetch_all_file_ids(client, kb_id):
+    """Return every file ID in a knowledge base, paging 100 at a time until the API's pagination total is reached."""
     all_ids = []
     offset, limit = 0, 100
     while True:
@@ -59,6 +60,7 @@ def fetch_all_file_ids(client, kb_id):
 
 
 def fetch_file_entities(client, kb_id, ids):
+    """Fetch full file entities for the given IDs, 100 per request (the API also requires knowledge_base_id)."""
     entities = []
     for i in range(0, len(ids), 100):
         batch = ids[i:i + 100]
@@ -69,6 +71,7 @@ def fetch_file_entities(client, kb_id, ids):
 
 
 def main() -> None:
+    """CLI entry point: list files in a knowledge base as a table."""
     parser = argparse.ArgumentParser(description="List files in a knowledge base as a table")
     parser.add_argument("--kb-id", required=True, help="Knowledge base ID")
     parser.add_argument("--name-contains", help="Case-insensitive substring filter on file name")

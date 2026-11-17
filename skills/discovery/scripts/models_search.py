@@ -24,13 +24,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_models_client
+from auth import call_native, get_models_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: query available models."""
     parser = argparse.ArgumentParser(description="Query available models")
     parser.add_argument("--filter", help='FQL filter', default="")
     parser.add_argument("--limit", type=int, default=100, help="Max results")
