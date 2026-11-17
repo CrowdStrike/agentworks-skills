@@ -39,24 +39,10 @@ import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
 from auth import call_native, get_kb_client  # pylint: disable=wrong-import-position
-from formatting import format_modified_by, format_timestamp  # pylint: disable=wrong-import-position
-
-
-def fetch_all_ids(client):
-    """Return every knowledge base ID, paging 100 at a time until the API's pagination total is reached."""
-    all_ids = []
-    offset, limit = 0, 100
-    while True:
-        body = call_native(client.QueriesKnowledgeBasesV1, parameters={"limit": limit, "offset": offset})
-        ids = body.get("resources") or []
-        if not ids:
-            break
-        all_ids.extend(ids)
-        total = body.get("meta", {}).get("pagination", {}).get("total", 0)
-        offset += limit
-        if offset >= total:
-            break
-    return all_ids
+from discovery_helpers import fetch_all_ids  # pylint: disable=wrong-import-position
+from formatting import (  # pylint: disable=wrong-import-position
+    format_modified_by, format_timestamp, modified_bounds, modified_within,
+)
 
 
 def fetch_entities(client, ids):
@@ -86,24 +72,24 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
     parser.add_argument("--json", action="store_true", help="Output raw JSON rows instead of a table")
     args = parser.parse_args()
 
+    bounds = modified_bounds(parser, args)
+
     client = get_kb_client()
-    ids = fetch_all_ids(client)
+    ids = fetch_all_ids(client.QueriesKnowledgeBasesV1)
     entities = fetch_entities(client, ids)
 
     rows = []
     for kb in entities:
-        name = kb.get("name", "")
-        description = kb.get("description", "")
+        name = kb.get("name") or ""
+        description = kb.get("description") or ""
         if args.name_contains and args.name_contains.lower() not in name.lower():
             continue
         if args.contains and args.contains.lower() not in (name + " " + description).lower():
             continue
-        updated_at = kb.get("updated_at", "")
-        if args.modified_since and updated_at < args.modified_since:
+        updated_at = kb.get("updated_at") or ""
+        if not modified_within(updated_at, bounds):
             continue
-        if args.modified_before and updated_at >= args.modified_before:
-            continue
-        files_count = kb.get("files_count", 0)
+        files_count = kb.get("files_count") or 0
         if args.min_files is not None and files_count < args.min_files:
             continue
         updated_by = format_modified_by(kb.get("updated_by"))

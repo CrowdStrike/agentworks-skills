@@ -68,6 +68,39 @@ def hydrate_spans(span_ids: list[str], batch_size: int = 50) -> list[dict]:
     return all_spans
 
 
+def fetch_all_ids(query_fn: Callable[..., dict], page_size: int = 100, **parameters: Any) -> list[str]:
+    """Return every ID from a /queries endpoint, paging with offset.
+
+    Stops when the API's pagination total is reached. When the API reports no total, it keeps
+    going until a page comes back short, or adds no new IDs (a server that ignores offset).
+    Treating a missing total as zero would stop after the first page and silently truncate
+    the listing.
+
+    Args:
+        query_fn: A FalconPy query method, e.g. get_agents_client().query_studio_agents
+        page_size: IDs per request
+        **parameters: Extra query parameters sent on every page (e.g. knowledge_base_id)
+    """
+    all_ids: list[str] = []
+    seen: set[str] = set()
+    offset = 0
+    while True:
+        body = call_native(query_fn, parameters={**parameters, "limit": page_size, "offset": offset})
+        page = body.get("resources") or []
+        new = [i for i in page if i not in seen]
+        if not new:
+            break
+        all_ids.extend(new)
+        seen.update(new)
+        offset += page_size
+        total = (body.get("meta") or {}).get("pagination", {}).get("total")
+        if total is not None and offset >= total:
+            break
+        if total is None and len(page) < page_size:
+            break
+    return all_ids
+
+
 # QueriesSpansV1 rejects (or clamps) any limit above this.
 SPAN_QUERY_PAGE_SIZE = 500
 

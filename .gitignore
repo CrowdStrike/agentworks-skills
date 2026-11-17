@@ -45,3 +45,8 @@ Thumbs.db
 # Codex bundles built by release.sh --bundle
 *.zip
 *.zip.partial
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/

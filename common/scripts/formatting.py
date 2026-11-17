@@ -6,7 +6,7 @@ list/inspect/analyze script, so they live here instead of being copied per scrip
 """
 
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 # Default timestamp layout for table output, e.g. "Oct. 05, 2026 14:03:09".
@@ -27,6 +27,52 @@ def humanize_duration(ms: float | None) -> str:
     if ms >= 1000:
         return f"{ms / 1000:.1f}s"
     return f"{int(ms)}ms"
+
+
+def parse_timestamp(value: Any) -> datetime | None:
+    """Parse an ISO8601 date/datetime (trailing "Z" accepted; naive values are UTC).
+
+    Returns None if value is empty or unparseable.
+    """
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def modified_bounds(parser: Any, args: Any) -> dict[str, datetime]:
+    """Parse --modified-since/--modified-before into bounds for modified_within().
+
+    Exits through parser.error (status 2) on a value that isn't an ISO date/datetime, so a
+    typo is reported instead of silently matching nothing.
+    """
+    bounds = {}
+    for flag in ("modified_since", "modified_before"):
+        raw = getattr(args, flag)
+        if raw:
+            bounds[flag] = parse_timestamp(raw)
+            if bounds[flag] is None:
+                parser.error(f"--{flag.replace('_', '-')}: not an ISO date/datetime: {raw!r}")
+    return bounds
+
+
+def modified_within(updated_at: Any, bounds: dict[str, datetime]) -> bool:
+    """True if updated_at falls inside the optional bounds.
+
+    Args:
+        updated_at: ISO8601 timestamp from the API (may be missing or malformed).
+        bounds: May hold "modified_since" (inclusive) and "modified_before" (exclusive).
+            With no bounds, everything passes; with any bound, an unparseable updated_at fails.
+    """
+    if not bounds:
+        return True
+    updated = parse_timestamp(updated_at)
+    if updated is None:
+        return False
+    if "modified_since" in bounds and updated < bounds["modified_since"]:
+        return False
+    return "modified_before" not in bounds or updated < bounds["modified_before"]
 
 
 def format_timestamp(
