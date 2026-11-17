@@ -21,16 +21,28 @@ set +e  # Advisory hook -- never fail
 # Needs jq to read the hook payload and emit JSON; without it, stay silent.
 command -v jq >/dev/null 2>&1 || exit 0
 
+HOOK_DIR="$(dirname "${BASH_SOURCE[0]}")"
 # shellcheck disable=SC1091
-source "$(dirname "${BASH_SOURCE[0]}")/host-output.sh"
+source "$HOOK_DIR/host-output.sh"
+# shellcheck disable=SC1091
+source "$HOOK_DIR/state-dir.sh"
 
 INPUT=$(cat)
+# Input that isn't JSON gets no reply, not a jq parse error on stderr.
+printf '%s' "$INPUT" | jq -e . >/dev/null 2>&1 || exit 0
 
-SKILL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_input.skill // empty')
+# `objects` skips a tool_input that isn't an object (e.g. a string) instead of erroring.
+SKILL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_input | objects | .skill // empty' 2>/dev/null) || exit 0
+# Claude Code namespaces plugin skills ("crowdstrike-charlotte-ai-agentworks:agents"); other hosts
+# send the bare name. Match AgentWorks skills on the bare name.
+case "$SKILL_NAME" in
+  crowdstrike-charlotte-ai-agentworks:*) SKILL_NAME="${SKILL_NAME#crowdstrike-charlotte-ai-agentworks:}" ;;
+esac
 # Same session-scoped marker paths as agentworks-router.sh: MARKER means this prompt was about an
 # API-managed agent or knowledge base; FOUNDRY_MARKER means it was about one inside a Foundry app.
 SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // .conversation_id // "nosession"' | tr -cd 'A-Za-z0-9_-')
-MARKER="${TMPDIR:-/tmp}/agentworks-router-${SESSION_ID:-nosession}"
+STATE_DIR=$(agentworks_state_dir) || exit 0
+MARKER="$STATE_DIR/agentworks-router-${SESSION_ID:-nosession}"
 FOUNDRY_MARKER="$MARKER.foundry"
 
 # Detect whether the sibling Foundry plugin is installed on the host running this hook.
@@ -76,7 +88,7 @@ case "$SKILL_NAME" in
 
   # An AgentWorks skill is being invoked although the prompt was about a Foundry app. Advise the
   # Foundry path; stay silent otherwise so ordinary AgentWorks use gets no cross-plugin noise.
-  crowdstrike-charlotte-ai-agentworks:*|agentworks|knowledge-bases)
+  agentworks|agents|invocation|knowledge-bases|discovery)
     [ -f "$FOUNDRY_MARKER" ] || exit 0
     if [ "$FOUNDRY_INSTALLED" = true ]; then
       MSG="Cross-plugin note: If this agent or knowledge base must be defined in a Foundry app (manifest.yml ai.agents / ai.knowledge_bases, foundry CLI), the foundry-skills plugin is installed -- route to crowdstrike-falcon-foundry:ai-agents-development for the app lifecycle. API-managed agents stay here."
