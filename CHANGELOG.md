@@ -5,6 +5,15 @@ All notable changes to the Charlotte AI AgentWorks Skills plugin.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Hook marker files now live in a private per-user directory instead of a predictable path in the
+  shared `/tmp`, so another local user can't pre-create them or redirect a write through a symlink
+- The Foundry cross-plugin note now also fires for the `agents`, `invocation`, and `discovery`
+  skills when an assistant reports skill names without the plugin prefix
+- Hooks no longer print jq errors when they receive input that isn't JSON
+
 ## [1.0.1] - 2026-10-21
 
 ### Changed
