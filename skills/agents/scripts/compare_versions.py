@@ -30,14 +30,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agent_invocation_client, is_transient_error
-from discovery_helpers import hydrate_spans
-from invocation_helpers import TERMINAL_STATUSES
+from auth import call_native, get_agent_invocation_client, is_transient_error  # pylint: disable=wrong-import-position
+from discovery_helpers import hydrate_spans  # pylint: disable=wrong-import-position
+from invocation_helpers import TERMINAL_STATUSES  # pylint: disable=wrong-import-position
 
-from analyze_agent import query_invocation_spans, analyze_spans
+from analyze_agent import query_invocation_spans, analyze_spans  # pylint: disable=wrong-import-position
 
 
 def invoke_version(agent_id: str, version_id: str, message: str) -> str:
@@ -103,6 +103,7 @@ def wait_for_terminal(invocation_id: str, timeout: int) -> dict:
 
 
 def summarize(invocation_id: str, response: dict) -> dict:
+    """Summarize one finished invocation: status, duration, cost, and tool usage from its spans."""
     resources = response.get("resources", [])
     invocation = resources[0] if resources else {}
     status = invocation.get("status", "unknown")
@@ -126,6 +127,7 @@ def summarize(invocation_id: str, response: dict) -> dict:
 
 
 def print_side_by_side(label_a: str, label_b: str, summary_a: dict, summary_b: dict) -> None:
+    """Print two invocation summaries as a side-by-side comparison table."""
     def fmt_cost(cents):
         return f"{cents / 100:.2f} credits"
 
@@ -151,6 +153,7 @@ def print_side_by_side(label_a: str, label_b: str, summary_a: dict, summary_b: d
 
 
 def main() -> None:
+    """CLI entry point: invoke two versions of an agent with the same message and compare results."""
     parser = argparse.ArgumentParser(
         description="Invoke two versions of an agent with the same message and compare results"
     )

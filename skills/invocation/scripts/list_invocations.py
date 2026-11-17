@@ -31,12 +31,12 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agents_client
-from discovery_helpers import hydrate_spans, query_span_ids
-from formatting import format_timestamp, humanize_duration
+from auth import call_native, get_agents_client  # pylint: disable=wrong-import-position
+from discovery_helpers import hydrate_spans, query_span_ids  # pylint: disable=wrong-import-position
+from formatting import format_timestamp, humanize_duration  # pylint: disable=wrong-import-position
 
 # ISO-style layout for the per-invocation listing (tables elsewhere use formatting's default).
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -202,6 +202,7 @@ def enrich_from_full_traces(invocations: list[dict]) -> None:
 
 
 def main() -> None:
+    """CLI entry point: list recent invocations for an agent."""
     parser = argparse.ArgumentParser(
         description="List recent invocations for an agent",
         epilog="Finds invocations from root spans, then reads each full trace for status and duration"

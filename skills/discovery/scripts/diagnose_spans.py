@@ -28,10 +28,11 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_spans_client
+from auth import call_native, get_spans_client  # pylint: disable=wrong-import-position
+from discovery_helpers import hydrate_spans  # pylint: disable=wrong-import-position
 
 
 def sample_recent_spans(count: int = 5) -> list[dict]:
@@ -52,9 +53,8 @@ def sample_recent_spans(count: int = 5) -> list[dict]:
         print(f"Got {len(span_ids)} span IDs, hydrating...", file=sys.stderr)
 
         # Hydrate using the shared helper
-        from discovery_helpers import hydrate_spans
         return hydrate_spans(span_ids[:count])
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught  # diagnostic tool: report and keep going
         print(f"ERROR: {e}", file=sys.stderr)
         return []
 
@@ -62,10 +62,9 @@ def sample_recent_spans(count: int = 5) -> list[dict]:
 def get_span_by_id(span_id: str) -> dict | None:
     """Get a specific span by ID."""
     try:
-        from discovery_helpers import hydrate_spans
         spans = hydrate_spans([span_id])
         return spans[0] if spans else None
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught  # diagnostic tool: report and keep going
         print(f"ERROR: {e}", file=sys.stderr)
         return None
 
@@ -83,9 +82,8 @@ def get_spans_by_trace(trace_id: str) -> list[dict]:
         if not span_ids:
             return []
 
-        from discovery_helpers import hydrate_spans
         return hydrate_spans(span_ids)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught  # diagnostic tool: report and keep going
         print(f"ERROR: {e}", file=sys.stderr)
         return []
 
@@ -122,7 +120,8 @@ def analyze_span_structure(spans: list[dict]) -> dict:
     }
 
 
-def main() -> None:
+def main() -> None:  # pylint: disable=too-many-branches,too-many-statements  # refactor once covered by tests
+    """CLI entry point: diagnose span field structure."""
     parser = argparse.ArgumentParser(
         description="Diagnose span field structure",
         epilog="Helps debug filter issues by showing actual span structure"

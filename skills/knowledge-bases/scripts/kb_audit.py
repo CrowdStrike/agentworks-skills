@@ -21,13 +21,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_kb_audit_client
+from auth import call_native, get_kb_audit_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: query knowledge base audit events."""
     parser = argparse.ArgumentParser(description="Query knowledge base audit events")
     parser.add_argument("--kb-id", required=True, help="Knowledge base ID")
     parser.add_argument("--filter", default="", help='FQL filter, e.g. operation_type:"CREATE"')

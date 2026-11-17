@@ -20,13 +20,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agents_client
+from auth import call_native, get_agents_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: get agent entities by IDs."""
     parser = argparse.ArgumentParser(description="Get agent entities by IDs")
     parser.add_argument("--ids", nargs="+", required=True, help="Agent IDs to retrieve")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")

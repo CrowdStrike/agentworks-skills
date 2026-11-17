@@ -447,11 +447,11 @@ if __name__ == "__main__":
             ("Agents", get_agents_client),
             ("AgentInvocation", get_agent_invocation_client),
         ):
-            client = factory()
-            if client.token_expired():
+            svc = factory()
+            if svc.token_expired():
                 print(
                     f"  Authentication FAILED: could not obtain token ({label})"
-                    f"{_fail_reason_suffix(client)}",
+                    f"{_fail_reason_suffix(svc)}",
                     file=sys.stderr,
                 )
                 sys.exit(1)

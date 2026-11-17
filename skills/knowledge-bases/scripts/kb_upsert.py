@@ -22,13 +22,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_kb_client
+from auth import call_native, get_kb_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: create or update a knowledge base."""
     parser = argparse.ArgumentParser(description="Create or update a knowledge base")
     parser.add_argument("--id", help="KB ID (for update; omit to create new)")
     parser.add_argument("--name", help="KB name (required for create)")

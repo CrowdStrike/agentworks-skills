@@ -6,7 +6,8 @@ Uses the native FalconPy Spans.entities_spans_v1 method via hydrate_spans().
 
 Examples:
     python spans_get.py --ids <span-id-1> <span-id-2>
-    python spans_get.py --ids $(python spans_search.py --filter 'trace_id:"..."' | grep -oE '[0-9a-f-]{36}' | head -5 | tr '\\n' ' ')
+    python spans_get.py --ids $(python spans_search.py --json \\
+        --filter "trace_id:'<trace-id>'+start_time:>='now-24h'" | jq -r '.resources[]')
 """
 
 import argparse
@@ -21,13 +22,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from discovery_helpers import hydrate_spans
+from discovery_helpers import hydrate_spans  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: fetch full span entities by IDs."""
     parser = argparse.ArgumentParser(
         description="Fetch full span entities by IDs",
         epilog="Get span IDs from spans_search.py. Uses automatic batching for large ID lists."
@@ -87,8 +89,8 @@ def main() -> None:
         attrs = span.get("attributes", {})
         if "cost.raw_credit_cents" in attrs:
             cents = attrs["cost.raw_credit_cents"]
-            credits = cents / 100 if isinstance(cents, (int, float)) else 0
-            print(f"  Credits: {credits:.2f}")
+            credit_total = cents / 100 if isinstance(cents, (int, float)) else 0
+            print(f"  Credits: {credit_total:.2f}")
 
         print()
 

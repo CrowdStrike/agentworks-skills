@@ -1,0 +1,8 @@
+# Test dependencies for the agentworks scripts.
+# Runtime deps (crowdstrike-falconpy) live in requirements.txt.
+# Dev tools are pinned exactly so Dependabot moves them through reviewable bumps.
+# Python 3.14+ is required, so stdlib tomllib covers TOML parsing — no tomli needed.
+-r requirements.txt
+pytest==9.2.0
+pytest-cov==7.1.0
+pylint==4.1.3

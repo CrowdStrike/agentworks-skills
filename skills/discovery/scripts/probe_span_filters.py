@@ -25,13 +25,13 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_spans_client
+from auth import call_native, get_spans_client  # pylint: disable=wrong-import-position
 
 
-def probe_filter(description: str, filter_expr: str) -> tuple[bool, int, str]:
+def probe_filter(filter_expr: str) -> tuple[bool, int, str]:
     """Test a filter and return (success, result_count, error_message)."""
     params = {"filter": filter_expr, "limit": "5"}
 
@@ -39,11 +39,12 @@ def probe_filter(description: str, filter_expr: str) -> tuple[bool, int, str]:
         response = call_native(get_spans_client().queries_spans_v1, parameters=params)
         resources = response.get("resources", [])
         return (True, len(resources), "")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught  # a probe reports any failure, it never raises
         return (False, 0, str(e))
 
 
-def main() -> None:
+def main() -> None:  # pylint: disable=too-many-statements  # refactor once covered by tests
+    """CLI entry point: test different span filter syntaxes to find what works."""
     parser = argparse.ArgumentParser(
         description="Test different span filter syntaxes to find what works"
     )
@@ -109,7 +110,7 @@ def main() -> None:
         print(f"Testing: {description}")
         print(f"  Filter: {filter_expr}")
 
-        success, count, error = probe_filter(description, filter_expr)
+        success, count, error = probe_filter(filter_expr)
 
         if success:
             print(f"  ✅ SUCCESS - Got {count} span ID(s)")
@@ -166,9 +167,9 @@ def main() -> None:
         best = None
 
     if best:
-        print(f"\nUse this filter format:")
+        print("\nUse this filter format:")
         print(f"  {best[1]}")
-        print(f"\nUpdate scripts to use this syntax instead of current format.")
+        print("\nUpdate scripts to use this syntax instead of current format.")
     else:
         print("\nSince no time filters work, use fallback strategy:")
         print("  1. If you have invocation IDs:")

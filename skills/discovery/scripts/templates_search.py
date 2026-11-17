@@ -19,14 +19,15 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import get_agent_templates_client
-from discovery_helpers import run_entity_search
+from auth import get_agent_templates_client  # pylint: disable=wrong-import-position
+from discovery_helpers import run_entity_search  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: query available agent template IDs by FQL filter."""
     run_entity_search(
         entity_name="template",
         entity_plural="templates",

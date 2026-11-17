@@ -22,11 +22,11 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agent_invocation_client
-from invocation_helpers import TERMINAL_STATUSES
+from auth import call_native, get_agent_invocation_client  # pylint: disable=wrong-import-position
+from invocation_helpers import TERMINAL_STATUSES  # pylint: disable=wrong-import-position
 
 
 # Seconds to wait for the invocation to leave an in-flight status after the cancel is accepted.
@@ -34,6 +34,7 @@ STATUS_WAIT_SECONDS = 10
 
 
 def main() -> None:
+    """CLI entry point: cancel an invocation."""
     parser = argparse.ArgumentParser(description="Cancel an invocation")
     parser.add_argument("--id", required=True, help="Invocation ID to cancel")
     parser.add_argument("--json", action="store_true", help="Output raw JSON")

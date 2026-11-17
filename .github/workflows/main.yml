@@ -1,0 +1,229 @@
+name: AgentWorks Skills CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Install ShellCheck
+        run: command -v shellcheck || { sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck; }
+      - name: Run ShellCheck
+        run: |
+          shellcheck hooks/*.sh scripts/*.sh
+          shellcheck --severity=error *.sh
+
+  pylint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.14"
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements-test.txt
+      - name: Run pylint (fail-under=10 enforced by .pylintrc)
+        run: |
+          source .venv/bin/activate
+          pylint --rcfile=.pylintrc common/scripts/*.py skills/*/scripts/*.py
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Validate JSON files
+        run: |
+          for f in \
+            hooks/hooks.json \
+            hooks/hooks-cursor.json \
+            plugin.json \
+            .claude-plugin/plugin.json \
+            .cursor-plugin/plugin.json \
+            .claude-plugin/marketplace.json \
+            .codex-plugin/plugin.json \
+            .agents/plugins/marketplace.json; do
+            echo "Validating $f"
+            python -m json.tool "$f" > /dev/null
+          done
+      - name: Validate SKILL.md frontmatter
+        run: |
+          fail=0
+          for skill in skills/*/SKILL.md; do
+            for field in name description version; do
+              if ! head -20 "$skill" | grep -q "^${field}:"; then
+                echo "FAIL: $skill missing '$field' in frontmatter"
+                fail=1
+              fi
+            done
+          done
+          exit $fail
+      - name: Validate skill size budgets
+        run: |
+          fail=0
+          total_desc_chars=0
+          max_tokens=5500
+
+          for skill in skills/*/SKILL.md; do
+            name=$(basename "$(dirname "$skill")")
+            chars=$(wc -c < "$skill")
+            approx_tokens=$((chars / 4))
+            pct=$((approx_tokens * 100 / max_tokens))
+
+            if [ "$approx_tokens" -gt "$max_tokens" ]; then
+              echo "FAIL: $name ~${approx_tokens} tokens (${pct}% of ${max_tokens} limit)"
+              fail=1
+            elif [ "$approx_tokens" -gt 4500 ]; then
+              echo "WARN: $name ~${approx_tokens} tokens (${pct}% of ${max_tokens} limit)"
+            fi
+
+            # Folded (>) descriptions span several lines: collect from 'description:'
+            # up to the next top-level frontmatter key.
+            desc=$(awk '/^description:/{f=1; sub(/^description: *>? */,""); print; next} f && /^[a-z_-]+:/{exit} f{print}' "$skill" | tr -s ' \n' ' ')
+            desc_len=${#desc}
+            total_desc_chars=$((total_desc_chars + desc_len))
+
+            if [ "$desc_len" -gt 1024 ]; then
+              echo "FAIL: $name description ${desc_len} chars (max 1024, the Agent Skills limit)"
+              fail=1
+            fi
+          done
+
+          desc_budget=8000
+          desc_pct=$((total_desc_chars * 100 / desc_budget))
+          echo ""
+          echo "Description budget: ${total_desc_chars} / ~${desc_budget} chars (${desc_pct}%) — 1% of 200k context at ~4 chars/token"
+          exit $fail
+      - name: Validate hook scripts are executable
+        run: |
+          fail=0
+          for script in hooks/*.sh; do
+            [ -x "$script" ] || { echo "FAIL: $script is not executable"; fail=1; }
+          done
+          exit $fail
+      - name: Validate Python scripts are syntactically valid
+        run: |
+          fail=0
+          while IFS= read -r py; do
+            if ! python -c "import ast, sys; ast.parse(open(sys.argv[1], encoding='utf-8').read())" "$py"; then
+              echo "FAIL: $py has a syntax error"
+              fail=1
+            fi
+          done < <(find . -name '*.py' -not -path '*/__pycache__/*' -not -path '*/.venv/*')
+          exit $fail
+      - name: Validate version consistency
+        run: |
+          fail=0
+          plugin_version=$(jq -r '.version' .claude-plugin/plugin.json)
+          marketplace_version=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          echo "plugin.json version: $plugin_version"
+          echo "marketplace.json plugins[0].version: $marketplace_version"
+
+          # marketplace.json must match plugin.json
+          if [ "$marketplace_version" != "$plugin_version" ]; then
+            echo "FAIL: marketplace.json plugins[0].version '$marketplace_version' != plugin.json '$plugin_version'"
+            fail=1
+          fi
+
+          # Root Agent Plugins manifest must match .claude-plugin/plugin.json
+          root_plugin_version=$(jq -r '.version' plugin.json)
+          if [ "$root_plugin_version" != "$plugin_version" ]; then
+            echo "FAIL: plugin.json version '$root_plugin_version' != .claude-plugin/plugin.json '$plugin_version'"
+            fail=1
+          fi
+
+          # Codex manifest must match .claude-plugin/plugin.json
+          codex_plugin_version=$(jq -r '.version' .codex-plugin/plugin.json)
+          if [ "$codex_plugin_version" != "$plugin_version" ]; then
+            echo "FAIL: .codex-plugin/plugin.json version '$codex_plugin_version' != .claude-plugin/plugin.json '$plugin_version'"
+            fail=1
+          fi
+
+          # Cursor manifest must match .claude-plugin/plugin.json
+          cursor_plugin_version=$(jq -r '.version' .cursor-plugin/plugin.json)
+          if [ "$cursor_plugin_version" != "$plugin_version" ]; then
+            echo "FAIL: .cursor-plugin/plugin.json version '$cursor_plugin_version' != .claude-plugin/plugin.json '$plugin_version'"
+            fail=1
+          fi
+
+          # Agent Plugins marketplace catalog pins the plugin to the release tag;
+          # its source.ref must match v<version> so it can't drift on a manual edit
+          if [ -f .agents/plugins/marketplace.json ]; then
+            agents_ref=$(jq -r '.plugins[0].source.ref' .agents/plugins/marketplace.json)
+            if [ "${agents_ref#v}" != "$plugin_version" ]; then
+              echo "FAIL: .agents/plugins/marketplace.json ref '$agents_ref' != v$plugin_version"
+              fail=1
+            fi
+          fi
+
+          # All SKILL.md versions must match plugin.json
+          for skill in skills/*/SKILL.md; do
+            skill_version=$(sed -n 's/^version: *//p' "$skill")
+            if [ "$skill_version" != "$plugin_version" ]; then
+              echo "FAIL: $skill version '$skill_version' != plugin.json '$plugin_version'"
+              fail=1
+            fi
+          done
+
+          # CHANGELOG must have an entry for this version
+          if ! grep -q "## \[${plugin_version}\]" CHANGELOG.md; then
+            echo "FAIL: CHANGELOG.md missing entry for version $plugin_version"
+            fail=1
+          fi
+
+          [ $fail -eq 0 ] && echo "All versions consistent: $plugin_version"
+          exit $fail
+
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238  # v6.2.0
+        with:
+          node-version: 26.13.0
+      - name: Run markdownlint
+        run: npx markdownlint-cli2 "**/*.md"
+      - name: Check relative markdown links resolve
+        # markdownlint checks link SYNTAX, not whether the target exists. This walks
+        # every relative link in a tracked .md and fails on any that does not resolve,
+        # so a moved file or a bad ../ path is caught here instead of only by the
+        # release-time bundle build. Root-relative (/foo) links resolve from the repo
+        # root, as GitHub renders them; external, mailto, and pure-anchor links are skipped.
+        run: |
+          python3 - <<'PY'
+          import os, re, subprocess, sys
+          files = subprocess.check_output(["git", "ls-files", "*.md"], text=True).split()
+          link_re = re.compile(r'\]\(\s*<?([^)>\s]+)')
+          bad = []
+          for f in files:
+              d = os.path.dirname(f)
+              with open(f, encoding="utf-8") as fh:
+                  text = fh.read()
+              for m in link_re.finditer(text):
+                  target = m.group(1)
+                  if target.startswith(("http://", "https://", "mailto:", "tel:", "#")):
+                      continue
+                  path = target.split("#")[0].split("?")[0]
+                  if not path:
+                      continue
+                  resolved = path.lstrip("/") if path.startswith("/") else os.path.join(d, path)
+                  if not os.path.exists(os.path.normpath(resolved)):
+                      bad.append(f"{f}: [{target}] -> {os.path.normpath(resolved)}")
+          if bad:
+              print("Broken relative markdown links:")
+              for b in bad:
+                  print("  " + b)
+              sys.exit(1)
+          print(f"OK: all relative markdown links resolve ({len(files)} files checked)")
+          PY

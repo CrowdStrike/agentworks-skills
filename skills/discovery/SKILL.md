@@ -29,7 +29,6 @@ metadata:
 > 3. Run scripts via `cd ${CLAUDE_PLUGIN_ROOT}/skills/discovery && ../../scripts/python.sh scripts/<script>.py`
 >
 > **MUST NOT:**
-> - 
 > - Modify discovered resources (read-only skill)
 
 ## Running the scripts
@@ -94,7 +93,7 @@ When you inspect an agent using `version_group_id`, the agents skill's `agent_ge
 - **Inspection shows production behavior** → You see what's actually running, not work-in-progress
 - **Draft changes are invisible until published** → Recent modifications won't appear until published
 
-### Workflow for Agent Inspection:
+### Workflow for Agent Inspection
 
 1. **Extract `version_group_id`** (NOT `agent_id` or `id`) from the metadata
 2. **Use the agents skill** to get the complete definition:

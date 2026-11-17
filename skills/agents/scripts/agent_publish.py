@@ -23,13 +23,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agents_client
+from auth import call_native, get_agents_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: publish a Charlotte AI AgentWorks agent version."""
     parser = argparse.ArgumentParser(
         description="Publish a Charlotte AI AgentWorks agent version",
         epilog="Note: Both --id (agent ID) and --version-id are required. Get version ID from agent_upsert.py or agent_get.py"

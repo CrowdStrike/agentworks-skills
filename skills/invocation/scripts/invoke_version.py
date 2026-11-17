@@ -22,13 +22,14 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_agent_invocation_client
+from auth import call_native, get_agent_invocation_client  # pylint: disable=wrong-import-position
 
 
 def main() -> None:
+    """CLI entry point: invoke a specific agent version."""
     parser = argparse.ArgumentParser(description="Invoke a specific agent version")
     parser.add_argument("--agent-id", required=True, help="Agent ID")
     parser.add_argument("--version-id", required=True, help="Agent version ID (UUID)")
@@ -41,7 +42,8 @@ def main() -> None:
     parser.add_argument(
         "--max-cost",
         type=int,
-        help="Optional max cost in credit cents (100 = 1 Charlotte credit; max: 10000). Invocation terminates when limit is reached.",
+        help="Optional max cost in credit cents (100 = 1 Charlotte credit; max: 10000). "
+             "Invocation terminates when limit is reached.",
     )
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
@@ -90,7 +92,7 @@ def main() -> None:
     invocation_id = invocation.get("id")
     status = invocation.get("status", "unknown")
 
-    print(f"Agent version invocation started successfully:")
+    print("Agent version invocation started successfully:")
     print(f"  Invocation ID: {invocation_id}")
     print(f"  Agent ID: {invocation.get('agent_id', args.agent_id)}")
     print(f"  Version ID: {args.version_id}")

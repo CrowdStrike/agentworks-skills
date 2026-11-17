@@ -18,11 +18,11 @@ Examples:
     python inspect_invocation.py --invocation-id <uuid> --json
 """
 
+import math
 import argparse
 import json
 import sys
 import os
-from datetime import datetime
 
 sys.path.insert(
     0,
@@ -31,12 +31,12 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from waterfall import parse_ms, render_waterfall
-from discovery_helpers import TOOL_RESPONSE_SPAN_TYPE, hydrate_spans, query_span_ids
-from formatting import humanize_duration
+from waterfall import parse_ms, render_waterfall  # pylint: disable=wrong-import-position
+from discovery_helpers import TOOL_RESPONSE_SPAN_TYPE, hydrate_spans, query_span_ids  # pylint: disable=wrong-import-position
+from formatting import humanize_duration  # pylint: disable=wrong-import-position
 
 
 # Look-back window for span queries, matching the 90-day retention the other scripts assume.
@@ -105,8 +105,8 @@ def calculate_total_duration(spans: list[dict]) -> float:
     starts = [parse_ms(s.get("start_time")) for s in spans]
     ends = [parse_ms(s.get("end_time")) for s in spans]
 
-    starts_valid = [s for s in starts if s == s]  # Filter NaN
-    ends_valid = [e for e in ends if e == e]
+    starts_valid = [s for s in starts if not math.isnan(s)]
+    ends_valid = [e for e in ends if not math.isnan(e)]
 
     if not starts_valid or not ends_valid:
         return 0.0
@@ -114,7 +114,8 @@ def calculate_total_duration(spans: list[dict]) -> float:
     return max(ends_valid) - min(starts_valid)
 
 
-def main() -> None:
+def main() -> None:  # pylint: disable=too-many-branches,too-many-statements  # refactor once covered by tests
+    """CLI entry point: inspect invocation traces with waterfall visualization."""
     parser = argparse.ArgumentParser(
         description="Inspect invocation traces with waterfall visualization",
         epilog="Shows waterfall tree, total/per-span durations, and raw tool outputs"
@@ -179,7 +180,7 @@ def main() -> None:
             if s.get("status") == "error" or s.get("attributes", {}).get("tool.result_is_error") is True
         ]
 
-    if tool_spans:
+    if tool_spans:  # pylint: disable=too-many-nested-blocks  # refactor once covered by tests
         header_suffix = "error tool span(s)" if args.errors_only else "tool spans"
         print(f"=== Tool Outputs ({len(tool_spans)} {header_suffix}) ===\n")
         for i, span in enumerate(tool_spans, 1):
@@ -195,7 +196,7 @@ def main() -> None:
 
             # Show relevant attributes (raw output, input, etc.)
             if attrs:
-                print(f"  Attributes:")
+                print("  Attributes:")
                 # Pretty-print JSON attributes
                 for key, value in sorted(attrs.items()):
                     # Skip cost/internal attrs, show tool-relevant ones

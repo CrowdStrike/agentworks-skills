@@ -26,7 +26,6 @@ import argparse
 import json
 import sys
 import os
-import re
 
 sys.path.insert(
     0,
@@ -35,10 +34,10 @@ sys.path.insert(
         "..", "..", "..", "common", "scripts",
     ),
 )
-import _bootstrap
+import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
-from auth import call_native, get_tools_client
+from auth import call_native, get_tools_client  # pylint: disable=wrong-import-position
 
 # Known tool categories (tenant-specific availability -- a zero count is not an
 # error). Keep this in sync with discovery/SKILL.md's category table.
@@ -82,7 +81,8 @@ def search_in_text(text: str, search_terms: str) -> bool:
     return False
 
 
-def main() -> None:
+def main() -> None:  # pylint: disable=too-many-branches,too-many-locals,too-many-statements  # refactor once covered by tests
+    """CLI entry point: get Charlotte AI AgentWorks tools with smart search."""
     parser = argparse.ArgumentParser(
         description="Get Charlotte AI AgentWorks tools with smart search"
     )

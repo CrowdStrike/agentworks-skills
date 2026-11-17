@@ -83,3 +83,18 @@ a stray `import json` reintroduced inside `main()`.
 
 Body: `{"id": "<agent-uuid>", "version_id": "<version-uuid>", "is_published": true}`. Needs both
 IDs — the agent ID alone is not enough.
+
+## Which version agent_get.py returns
+
+`agent_get.py` returns the latest published version, or the latest version when nothing is published. Modifying a published agent creates a draft that `agent_get.py` doesn't show until it's published:
+
+```
+Published agent: v1 (system prompt: "You are a security analyst...")
+↓ User modifies agent
+Draft version: v2 (system prompt: "You are an expert security analyst...")
+↓ Inspect with agent_get.py
+Result: Shows v1 (published), NOT v2 (draft)
+↓ Publish v2
+↓ Inspect with agent_get.py
+Result: Shows v2 (now published)
+```
