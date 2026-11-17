@@ -12,7 +12,7 @@ Open an issue on GitHub for bugs, documentation fixes, and enhancement requests.
 
 1. Fork the repo and create a feature branch from `main`.
 2. Make focused, single-purpose changes — smaller PRs review faster.
-3. Run both test scripts locally and confirm they pass (see Testing below).
+3. Run the checks locally and confirm they pass (see Testing below).
 4. Update the relevant `SKILL.md`, reference docs, and `CHANGELOG.md` as needed.
 5. Open the PR with a clear description of what changed and why.
 
@@ -20,42 +20,49 @@ Open an issue on GitHub for bugs, documentation fixes, and enhancement requests.
 
 A change merges when it:
 
-- Passes `test-hooks.sh` and `test-skill.sh` with no failures.
-- Keeps every Python script syntactically valid and self-contained (shared auth via `common/scripts/auth.py` only).
-- Preserves the discipline rules — no hardcoded credentials, no placeholder action IDs, every action carries a `version_constraint`.
+- Passes every CI job: ShellCheck, the hook tests, pytest on Python 3.14 and 3.15, pylint at 10/10, the structural checks, and markdownlint.
+- Doesn't lower test coverage. The floor in `.github/workflows/main.yml` only moves up.
+- Keeps every Python script self-contained (shared code in `common/scripts/` only).
+- Preserves the discipline rules — no hardcoded credentials, and every model, tool, and agent ID comes from a query, never a guess.
 - Updates `CHANGELOG.md` for any user-facing change.
 - Has at least one maintainer approval.
 
 ## Testing
 
-Unit tests (Python) — set up a virtual environment first, then run pytest:
+The tests need Python 3.14 or newer. Every API call is mocked, so no credentials are needed.
 
 ```bash
-python -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-test.txt
-pytest tests/          # full suite, all API calls mocked (no credentials needed)
+
+pytest tests/ --cov --cov-fail-under=93    # unit tests; coverage settings are in pyproject.toml
+pylint --rcfile=.pylintrc common/scripts/*.py skills/*/scripts/*.py
 ```
 
-Fast bash checks (no venv or credentials needed):
+The shell checks need only bash, `jq`, and Python:
 
 ```bash
-./test-hooks.sh        # Hook routing and cross-plugin advisory unit tests
-./test-validate.sh     # SKILL.md frontmatter, Python syntax, reference-doc presence
+./test-hooks.sh                            # router and Foundry bridge hooks
+./test-bootstrap-symlink.sh                # scripts still resolve when a skill is installed as a symlink
+shellcheck hooks/*.sh scripts/*.sh && shellcheck --severity=error ./*.sh
+npx markdownlint-cli2 "**/*.md" "#.venv"
 ```
 
-All must exit 0 before a PR is ready for review. If you change a script, add or update its `tests/test_*.py`. If you change a hook, add a case in `test-hooks.sh`. If you add a skill or reference doc, extend `test-validate.sh` to cover it.
+CI runs the same commands, plus structural checks (JSON manifests, SKILL.md frontmatter and size budgets, and one version across every manifest). All of them must pass before a PR is ready for review.
+
+When you change a script, add or update a test in `tests/` first and watch it fail, so you know it can catch the bug. A script that calls the API also belongs in the list in `tests/test_cli_errors.py`, which checks that an HTTP error prints one `ERROR:` line and exits 1. When you change a hook, add a case to `test-hooks.sh`.
 
 ## Adding a New Skill
 
 Follow the established pattern so the orchestrator and tests stay consistent:
 
 1. Create `<skill>/SKILL.md` with the standard frontmatter (`name`, `description` with TRIGGER / DO NOT TRIGGER, `version`, `tags`, `author`, `license`, `compatibility`, `metadata.category`).
-2. Open the body with a System Injection Block (role + immediate actions + MUST NOT).
+2. Open the body with a "Read this first" block (role, immediate actions, and MUST NOT).
 3. Put executable scripts in `<skill>/scripts/` and import auth from `common/scripts/auth.py`.
 4. Put long-form docs in `<skill>/references/` and link them from a Reading Guide table.
-5. Add a routing entry to the `workflows` orchestrator decision tree.
-6. Add any new reference docs to the `check_ref` list in `test-skill.sh`.
+5. Add a routing entry to the `agentworks` orchestrator decision tree.
+6. Add tests for the new scripts in `tests/`, and list each one in `tests/test_cli_errors.py`.
 
 ## Code Standards
 

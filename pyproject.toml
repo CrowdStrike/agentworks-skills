@@ -1,2 +1,18 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+# Several tests run the scripts as real processes, the way an assistant does. `patch = subprocess`
+# measures those child processes too, so the __main__ blocks they exercise are counted.
+patch = ["subprocess"]
+parallel = true
+source = [
+    "common/scripts",
+    "skills/agents/scripts",
+    "skills/discovery/scripts",
+    "skills/invocation/scripts",
+    "skills/knowledge-bases/scripts",
+]
+
+[tool.coverage.report]
+show_missing = true

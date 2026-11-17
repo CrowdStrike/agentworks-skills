@@ -379,3 +379,76 @@ class TestListInvocationsMain:
         assert code == 0
         assert "trace big has at least 3 spans" in err_out
 
+
+
+def analysis(**overrides):
+    """An analyze_spans() result for a healthy agent; tests override one thing at a time."""
+    base = {"total_traces": 10, "trace_statuses": {"success": 10}, "tool_usage": {"search": 10},
+            "tool_errors": {}, "tool_durations": {"search": {"count": 10, "avg_ms": 400, "max_ms": 900}},
+            "trace_durations": {"count": 10, "avg_ms": 5000, "max_ms": 9000}, "saw_tool_telemetry": True,
+            "total_cost_cents": 0, "avg_cost_cents": 0, "empty_result_traces": 0}
+    return {**base, **overrides}
+
+
+def recommend(result, tools=("search",), patterns=None):
+    details = {"active_version": {"tools": [{"id": t, "name": ""} for t in tools]}} if tools is not None else None
+    return analyze_agent.generate_recommendations(result, details, patterns or {"tool_call_patterns": {}})
+
+
+def mentions(recs, text):
+    return [r for r in recs if text in r]
+
+
+class TestRecommendations:
+    def test_a_healthy_agent_gets_no_warnings(self):
+        recs = recommend(analysis())
+        assert not [r for r in recs if "⚠️" in r or "📋" in r or "⏱️" in r or "❓" in r]
+
+    def test_unused_tools_are_named(self):
+        recs = recommend(analysis(), tools=("search", "lookup", "enrich"))
+        assert mentions(recs, "Unused tools detected: enrich, lookup.")
+
+    def test_no_tool_telemetry_never_reports_tools_as_unused(self):
+        """Regression: with zero tool spans fetched, every configured tool looked unused, and
+        acting on that would strip working tools from a healthy agent."""
+        recs = recommend(analysis(tool_usage={}, saw_tool_telemetry=False), tools=("search", "lookup"))
+        assert mentions(recs, "No tool telemetry in scope")
+        assert not mentions(recs, "Unused tools detected")
+
+    def test_tools_are_matched_by_id_when_the_name_is_blank(self):
+        assert not mentions(recommend(analysis(tool_usage={"mcp/x/search": 3}), tools=("mcp/x/search",)), "Unused")
+
+    def test_without_agent_details_nothing_is_said_about_unused_tools(self):
+        recs = recommend(analysis(), tools=None)
+        assert not mentions(recs, "Unused") and not mentions(recs, "No tool telemetry")
+
+    @pytest.mark.parametrize("failed, warned", [(2, False), (3, True)])
+    def test_trace_error_rate_warns_above_20_percent(self, failed, warned):
+        recs = recommend(analysis(trace_statuses={"success": 10 - failed, "error": failed}))
+        assert bool(mentions(recs, "High error rate")) is warned
+
+    @pytest.mark.parametrize("errors, warned", [(3, False), (4, True)])
+    def test_tool_error_rate_warns_above_30_percent(self, errors, warned):
+        recs = recommend(analysis(tool_errors={"search": errors}))
+        assert bool(mentions(recs, "Tool 'search' has high error rate")) is warned
+
+    @pytest.mark.parametrize("avg_ms, warned", [(30000, False), (30001, True)])
+    def test_slow_tool_warns_above_30_seconds(self, avg_ms, warned):
+        durations = {"search": {"count": 10, "avg_ms": avg_ms, "max_ms": avg_ms}}
+        assert bool(mentions(recommend(analysis(tool_durations=durations)), "Tool 'search' is slow")) is warned
+
+    @pytest.mark.parametrize("avg_ms, warned", [(60000, False), (60001, True)])
+    def test_slow_invocations_warn_above_one_minute(self, avg_ms, warned):
+        trace = {"count": 10, "avg_ms": avg_ms, "max_ms": avg_ms}
+        assert bool(mentions(recommend(analysis(trace_durations=trace)), "Average invocation duration")) is warned
+
+    def test_empty_results_are_reported(self):
+        assert mentions(recommend(analysis(empty_result_traces=2)), "2 trace(s) completed successfully but returned")
+
+    def test_cost_is_reported_in_credits(self):
+        recs = recommend(analysis(total_cost_cents=1500, avg_cost_cents=150))
+        assert mentions(recs, "Average cost per invocation: 1.50 credits (total: 15.00 credits across 10 traces).")
+
+    def test_no_traces_does_not_divide_by_zero(self):
+        recs = recommend(analysis(total_traces=0, trace_statuses={}, tool_usage={}, tool_durations={}))
+        assert isinstance(recs, list)

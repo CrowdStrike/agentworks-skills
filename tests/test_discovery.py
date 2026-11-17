@@ -348,3 +348,69 @@ class TestProbeSpanFilters:
         run_main(module, "--trace-id", "abc123")
         tried = [c.kwargs["parameters"]["filter"] for c in client.queries_spans_v1.call_args_list]
         assert "trace_id:'abc123'+start_time:>='now-24h'" in tried
+
+
+class TestDiagnoseSpans:
+    @pytest.fixture
+    def diag(self, monkeypatch):
+        import diagnose_spans  # pylint: disable=import-outside-toplevel
+
+        client, hydrate = MagicMock(), MagicMock()
+        monkeypatch.setattr(diagnose_spans, "get_spans_client", lambda: client)
+        monkeypatch.setattr(diagnose_spans, "hydrate_spans", hydrate)
+        return diagnose_spans, client, hydrate
+
+    AGENT_SPAN = {"span_id": "s-1", "name": "agent", "span_type": "aw_agent", "trace_id": "t-1", "status": "ok",
+                  "attributes": {"aw_agent.id": "agent-1", "aw_agent.invocation_id": "inv-1",
+                                 "tool": {"result": "x" * 100}}}
+
+    def test_samples_recent_spans_with_the_scripts_time_filter(self, diag, run_main):
+        module, client, hydrate = diag
+        client.queries_spans_v1.return_value = ok({"resources": ["s-1", "s-2", "s-3"]})
+        hydrate.return_value = [self.AGENT_SPAN]
+        code, out, _ = run_main(module, "--sample", "2")
+        assert client.queries_spans_v1.call_args.kwargs["parameters"] == {
+            "filter": "start_time:>='now-24h'", "limit": "2", "sort": "start_time|desc"}
+        hydrate.assert_called_once_with(["s-1", "s-2"])
+        assert code == 0
+        assert "  - attributes.aw_agent.id" in out and "  - attributes.tool.result" in out
+        assert "Agent ID: agent-1" in out and "Invocation ID: inv-1" in out
+        assert "attributes.aw_agent.invocation_id:'<uuid>'" in out
+
+    def test_spans_without_agent_attributes_get_the_broader_advice(self, diag, run_main):
+        module, client, hydrate = diag
+        client.queries_spans_v1.return_value = ok({"resources": ["s-1"]})
+        hydrate.return_value = [{"span_id": "s-1", "name": "llm", "span_type": "llm", "attributes": None}]
+        code, out, _ = run_main(module)
+        assert code == 0 and "No aw_agent.* attributes found in sample" in out
+
+    def test_trace_id_queries_that_trace(self, diag, run_main):
+        module, client, hydrate = diag
+        client.queries_spans_v1.return_value = ok({"resources": ["s-1"]})
+        hydrate.return_value = [self.AGENT_SPAN]
+        code, out, _ = run_main(module, "--trace-id", "t-1", "--json")
+        assert client.queries_spans_v1.call_args.kwargs["parameters"]["filter"] == "trace_id:'t-1'"
+        assert code == 0 and json.loads(out) == [self.AGENT_SPAN]
+
+    def test_span_id_fetches_one_span(self, diag, run_main):
+        module, client, hydrate = diag
+        hydrate.return_value = [self.AGENT_SPAN]
+        code, _, _ = run_main(module, "--span-id", "s-1")
+        hydrate.assert_called_once_with(["s-1"])
+        client.queries_spans_v1.assert_not_called()
+        assert code == 0
+
+    @pytest.mark.parametrize("args", [[], ["--trace-id", "t-1"], ["--span-id", "s-1"]])
+    def test_an_api_failure_is_reported_and_exits_1(self, diag, run_main, args):
+        module, client, hydrate = diag
+        client.queries_spans_v1.return_value = err(403, "missing scope")
+        hydrate.side_effect = RuntimeError("HTTP 403: missing scope")
+        code, _, err_out = run_main(module, *args)
+        assert code == 1
+        assert "HTTP 403" in err_out and "No spans retrieved" in err_out
+
+    def test_no_spans_in_the_window(self, diag, run_main):
+        module, client, _ = diag
+        client.queries_spans_v1.return_value = ok({"resources": []})
+        code, _, err_out = run_main(module)
+        assert code == 1 and "No span IDs returned" in err_out
