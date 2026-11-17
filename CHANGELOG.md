@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Foundry cross-plugin note now also fires for the `agents`, `invocation`, and `discovery`
   skills when an assistant reports skill names without the plugin prefix
 - Hooks no longer print jq errors when they receive input that isn't JSON
+- Thirteen agent, discovery, and invoke scripts now report an API error as a single `ERROR: HTTP <status>: ...`
+  line and exit 1, like the other scripts, instead of printing a Python traceback
 
 ## [1.0.1] - 2026-10-21
 
