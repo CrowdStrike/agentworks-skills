@@ -9,11 +9,15 @@
 # AGENTWORKS_HOOK_STATE_DIR overrides the location (tests use it).
 
 # Print the state directory, creating it if needed. Returns 1 if it can't be
-# trusted (not ours, a symlink, or not creatable); callers then skip markers.
+# trusted (not ours, a symlink, not private, or not creatable); callers then skip markers.
 agentworks_state_dir() {
   local dir="${AGENTWORKS_HOOK_STATE_DIR:-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/agentworks-skills-$(id -u)}"
+  local perms
   dir="${dir%/}"
   [ -e "$dir" ] || [ -L "$dir" ] || mkdir -m 700 "$dir" 2>/dev/null || return 1
   [ -d "$dir" ] && [ ! -L "$dir" ] && [ -O "$dir" ] || return 1
+  # GNU stat (Linux/Git Bash) and BSD stat (macOS) use different mode flags.
+  perms=$(stat -c '%a' "$dir" 2>/dev/null || stat -f '%Lp' "$dir" 2>/dev/null) || return 1
+  [ "$perms" = "700" ] || return 1
   printf '%s' "$dir"
 }

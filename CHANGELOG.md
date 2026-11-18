@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Hook marker files now live in a private per-user directory instead of a predictable path in the
   shared `/tmp`, so another local user can't pre-create them or redirect a write through a symlink
+- Existing hook state directories must also have mode 0700; hooks skip marker files in shared directories
 - The Foundry cross-plugin note now also fires for the `agents`, `invocation`, and `discovery`
   skills when an assistant reports skill names without the plugin prefix
 - Hooks no longer print jq errors when they receive input that isn't JSON
