@@ -193,7 +193,7 @@ jobs:
         with:
           node-version: 26.13.0
       - name: Run markdownlint
-        run: npx markdownlint-cli2 "**/*.md"
+        run: npx markdownlint-cli2@0.24.1 "**/*.md"
       - name: Check relative markdown links resolve
         # markdownlint checks link SYNTAX, not whether the target exists. This walks
         # every relative link in a tracked .md and fails on any that does not resolve,
