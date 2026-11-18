@@ -177,6 +177,34 @@ assert_contains "returns the created path" "$OUT" "$D"
 PERMS=$(stat -c '%a' "$D" 2>/dev/null || stat -f '%Lp' "$D")  # GNU first: Linux `stat -f` means filesystem status and doesn't fail
 if [ "$PERMS" = "700" ]; then pass "state dir is mode 700"; else fail "state dir is mode 700 (got $PERMS)"; fi
 
+OUT=$(AGENTWORKS_HOOK_STATE_DIR="$D" agentworks_state_dir); RC=$?
+assert_rc0 "reusing a private state dir"
+assert_contains "returns the existing private path" "$OUT" "$D"
+
+for mode in 755 770 777; do
+  D="$WORK/mode-$mode"
+  mkdir -m "$mode" "$D"
+  chmod "$mode" "$D"
+  OUT=$(AGENTWORKS_HOOK_STATE_DIR="$D" agentworks_state_dir); RC=$?
+  if [ "$RC" -ne 0 ]; then pass "mode $mode state dir is refused"; else fail "mode $mode state dir is refused"; fi
+  assert_empty "mode $mode state dir returns no path" "$OUT"
+done
+
+# A shared state dir lets another user plant markers and dangling symlinks.
+UNSAFE="$WORK/mode-777"
+touch "$UNSAFE/agentworks-router-unsafe" "$UNSAFE/agentworks-router-unsafe.foundry"
+ln -s "$WORK/unexpected-write" "$UNSAFE/agentworks-router-unsafe.nudged"
+OUT=$(AGENTWORKS_HOOK_STATE_DIR="$UNSAFE" bash "$ROUTER" <<<"$(tool unsafe Skill)" 2>"$WORK/stderr"); RC=$?
+assert_rc0 "router with a shared state dir"
+assert_empty "router with a shared state dir: stderr" "$(cat "$WORK/stderr")"
+assert_no_file "a planted nudge symlink cannot create a file outside the state dir" "$WORK/unexpected-write"
+OUT=$(AGENTWORKS_HOOK_STATE_DIR="$UNSAFE" bash "$BRIDGE" <<<"$(skill unsafe agents)" 2>"$WORK/stderr"); RC=$?
+assert_rc0 "bridge with a shared state dir"
+assert_empty "a planted Foundry marker in a shared state dir gets no note" "$(context)"
+OUT=$(AGENTWORKS_HOOK_STATE_DIR="$UNSAFE" bash "$ROUTER" <<<"$(prompt unsafe-prompt 'create an agent')" 2>/dev/null)
+assert_contains "the hint is still emitted with a shared state dir" "$(context)" "agentworks"
+assert_no_file "no marker is written to a shared state dir" "$UNSAFE/agentworks-router-unsafe-prompt"
+
 mkdir -p "$WORK/target"
 ln -s "$WORK/target" "$WORK/link"
 AGENTWORKS_HOOK_STATE_DIR="$WORK/link" agentworks_state_dir >/dev/null; RC=$?
