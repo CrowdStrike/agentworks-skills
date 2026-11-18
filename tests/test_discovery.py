@@ -349,6 +349,31 @@ class TestProbeSpanFilters:
         tried = [c.kwargs["parameters"]["filter"] for c in client.queries_spans_v1.call_args_list]
         assert "trace_id:'abc123'+start_time:>='now-24h'" in tried
 
+    def test_a_working_time_filter_cannot_hide_a_failed_trace_filter(self, probe, run_main):
+        module, client = probe
+        self.accept_only(client, {"", self.SCRIPT_SYNTAX, 'trace_id:"abc123"'})
+        _, out, _ = run_main(module, "--trace-id", "abc123")
+        assert "No change is needed" not in out
+        assert "The scripts' trace-ID filter failed" in out
+        assert "No time-bounded trace-ID filter worked" in out
+        assert "Use this filter format" not in out
+
+    def test_a_working_combined_filter_needs_no_change(self, probe, run_main):
+        module, client = probe
+        combined = f"trace_id:'abc123'+{self.SCRIPT_SYNTAX}"
+        self.accept_only(client, {"", self.SCRIPT_SYNTAX, combined})
+        _, out, _ = run_main(module, "--trace-id", "abc123")
+        assert f"The scripts already use a working syntax ({combined}). No change is needed." in out
+        assert "Update scripts" not in out
+
+    def test_trace_recommendation_uses_a_working_time_bounded_trace_filter(self, probe, run_main):
+        module, client = probe
+        alternative = 'trace_id:"abc123"+start_time:>=now-24h'
+        self.accept_only(client, {"", self.SCRIPT_SYNTAX, alternative})
+        _, out, _ = run_main(module, "--trace-id", "abc123")
+        assert f"Use this filter format:\n  {alternative}" in out
+        assert "No change is needed" not in out
+
 
 class TestDiagnoseSpans:
     @pytest.fixture

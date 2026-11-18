@@ -9,6 +9,7 @@ import agent_get
 import agent_list
 import agent_publish
 import agent_search
+import discovery_helpers
 from conftest import err, ok
 
 
@@ -56,6 +57,14 @@ class TestAgentList:
         serve(agents, [agent(f"a-{i}", f"Agent {i:03d}") for i in range(230)], report_total=False)
         _, out, _ = run_main(agent_list, "--json", "--limit", "500")
         assert json.loads(out)["total_matched"] == 230
+
+    def test_query_window_keeps_rows_and_warns_without_breaking_json(self, agents, run_main, monkeypatch):
+        monkeypatch.setattr(discovery_helpers, "QUERY_RESULT_WINDOW", 100)
+        serve(agents, [agent(f"a-{i}", f"Agent {i:03d}") for i in range(101)], report_total=False)
+        code, out, err_out = run_main(agent_list, "--json", "--limit", "500")
+        assert code == 0 and len(rows(out)) == 100
+        assert agents.query_studio_agents.call_count == 1
+        assert "may be incomplete" in err_out
 
     def test_default_is_most_recently_modified_first(self, agents, run_main):
         serve(agents, [agent("old", "Old", "2026-09-01T00:00:00Z"), agent("new", "New", "2026-10-09T00:00:00Z")])

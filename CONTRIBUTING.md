@@ -46,7 +46,7 @@ The shell checks need only bash, `jq`, and Python:
 ./test-hooks.sh                            # router and Foundry bridge hooks
 ./test-bootstrap-symlink.sh                # scripts still resolve when a skill is installed as a symlink
 shellcheck hooks/*.sh scripts/*.sh && shellcheck --severity=error ./*.sh
-npx markdownlint-cli2 "**/*.md" "#.venv"
+npx markdownlint-cli2@0.24.1 "**/*.md" "#.venv"
 ```
 
 CI runs the same commands, plus structural checks (JSON manifests, SKILL.md frontmatter and size budgets, and one version across every manifest). All of them must pass before a PR is ready for review.

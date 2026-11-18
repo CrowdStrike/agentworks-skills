@@ -276,6 +276,47 @@ class TestFetchAllIds:
         assert len(dh.fetch_all_ids(query)) == 100
         assert query.call_count == 2
 
+    @pytest.mark.parametrize("report_total", [True, False])
+    @pytest.mark.parametrize("count", [9999, 10000, 10001])
+    def test_stops_at_the_api_window_without_discarding_ids(self, count, report_total, capsys):
+        """Agent and KB queries reject offset + limit above 10,000, even for an empty page."""
+        ids = [f"id-{i}" for i in range(count)]
+
+        def query(parameters):
+            off, lim = parameters["offset"], parameters["limit"]
+            assert off + lim <= 10000
+            body = {"resources": ids[off:off + lim]}
+            if report_total:
+                body["meta"] = {"pagination": {"total": count}}
+            return ok(body)
+
+        assert dh.fetch_all_ids(query) == ids[:10000]
+        warning = capsys.readouterr().err
+        if count > 10000 or (count == 10000 and not report_total):
+            assert "10,000-result query window" in warning
+            assert "may be incomplete" in warning
+        else:
+            assert not warning
+
+    def test_last_page_is_reduced_to_fit_the_window(self, capsys):
+        query = self._query([f"id-{i}" for i in range(10000)], False)
+        assert len(dh.fetch_all_ids(query, page_size=300)) == 10000
+        assert query.call_args.kwargs["parameters"] == {"limit": 100, "offset": 9900}
+        assert all(c.kwargs["parameters"]["offset"] + c.kwargs["parameters"]["limit"] <= 10000
+                   for c in query.call_args_list)
+        assert "may be incomplete" in capsys.readouterr().err
+
+    def test_short_pages_with_a_total_advance_by_the_number_returned(self):
+        ids = [f"id-{i}" for i in range(150)]
+
+        def query(parameters):
+            off = parameters["offset"]
+            return ok({"resources": ids[off:off + 50], "meta": {"pagination": {"total": len(ids)}}})
+
+        client = MagicMock(side_effect=query)
+        assert dh.fetch_all_ids(client) == ids
+        assert [c.kwargs["parameters"]["offset"] for c in client.call_args_list] == [0, 50, 100]
+
 
 class TestModifiedWithin:
     BOUNDS = {"modified_since": formatting.parse_timestamp("2026-10-06"),

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import discovery_helpers
 import kb_audit
 import kb_file_download
 import kb_file_upload
@@ -75,6 +76,14 @@ class TestKbList:
         serve(kb_client, [kb(f"kb-{i}", f"KB {i:03d}") for i in range(250)], report_total=False)
         _, out, _ = run_main(kb_list, "--json", "--limit", "500")
         assert json.loads(out)["total_matched"] == 250
+
+    def test_query_window_keeps_rows_and_warns_without_breaking_json(self, kb_client, run_main, monkeypatch):
+        monkeypatch.setattr(discovery_helpers, "QUERY_RESULT_WINDOW", 100)
+        serve(kb_client, [kb(f"kb-{i}", f"KB {i:03d}") for i in range(101)], report_total=False)
+        code, out, err_out = run_main(kb_list, "--json", "--limit", "500")
+        assert code == 0 and len(rows(out)) == 100
+        assert kb_client.QueriesKnowledgeBasesV1.call_count == 1
+        assert "may be incomplete" in err_out
 
     def test_sorts_newest_first_by_default(self, kb_client, run_main):
         serve(kb_client, [kb("a", "Alpha", "2026-10-01T00:00:00Z"), kb("b", "Beta", "2026-10-09T00:00:00Z")])
@@ -287,6 +296,18 @@ class TestKbFiles:
         code, out, _ = run_main(kb_files_list, "--kb-id", "kb-1", "--json")
         assert code == 0
         assert json.loads(out)["total_matched"] == 150
+
+    def test_files_query_window_keeps_rows_and_warns_without_breaking_json(self, files_client, run_main, monkeypatch):
+        monkeypatch.setattr(discovery_helpers, "QUERY_RESULT_WINDOW", 100)
+        files_client.QueriesKnowledgeBaseFilesV1.return_value = ok({"resources": [f"f-{i}" for i in range(100)]})
+        files_client.EntitiesKnowledgeBaseFilesV1.side_effect = lambda knowledge_base_id, ids: ok({
+            "resources": [{"id": i, "name": i} for i in ids],
+        })
+        code, out, err_out = run_main(kb_files_list, "--kb-id", "kb-1", "--json")
+        assert code == 0 and len(rows(out)) == 100
+        files_client.QueriesKnowledgeBaseFilesV1.assert_called_once_with(
+            parameters={"knowledge_base_id": "kb-1", "limit": 100, "offset": 0})
+        assert "may be incomplete" in err_out
 
     def test_files_list_name_filter_skips_a_file_with_a_null_name(self, files_client, run_main):
         files_client.QueriesKnowledgeBaseFilesV1.return_value = ok({"resources": ["f-1", "f-2"]})

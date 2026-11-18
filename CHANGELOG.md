@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `attributes` is null
 - `probe_span_filters.py` now tests the filter syntax the scripts use, and says no change is needed when it works
   instead of recommending a different syntax
+- With `--trace-id`, `probe_span_filters.py` only recommends working time-bounded trace filters and no longer
+  reports "No change is needed" when only a time-only filter works
+- Agent, knowledge-base, and file listings stop at the API's 10,000-result query window instead of failing on
+  an out-of-range request; they keep the collected results and warn when the listing may be incomplete
 - Thirteen agent, discovery, and invoke scripts now report an API error as a single `ERROR: HTTP <status>: ...`
   line and exit 1, like the other scripts, instead of printing a Python traceback
 
