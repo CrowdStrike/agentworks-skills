@@ -1,5 +1,6 @@
 """Tests for the shared helpers in common/scripts: formatting, _bootstrap, discovery_helpers."""
 
+import json
 import os
 from datetime import timezone
 import sys
@@ -205,9 +206,11 @@ class TestRunEntitySearch:
         assert "Added default time filter" in out.err
         assert "No spans found." in out.out
 
-    def test_json(self, monkeypatch, capsys):
-        _, out = self._run(monkeypatch, capsys, ["--json"], {"resources": ["a"]})
-        assert '"resources"' in out.out
+    def test_json_prints_the_response_body_instead_of_the_listing(self, monkeypatch, capsys):
+        body = {"resources": ["a", "b"], "meta": {"pagination": {"total": 9}}}
+        _, out = self._run(monkeypatch, capsys, ["--json"], body)
+        assert json.loads(out.out) == body
+        assert "Found" not in out.out
 
     def test_help_never_builds_a_client(self, monkeypatch):
         query = MagicMock()
