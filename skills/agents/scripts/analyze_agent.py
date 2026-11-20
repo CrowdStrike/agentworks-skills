@@ -179,7 +179,7 @@ def _ts_ms(ts: str | None) -> float:
 
 def extract_agent_version(span: dict) -> dict:
     """Extract agent version/definition from span attributes."""
-    attrs = span.get("attributes", {})
+    attrs = span.get("attributes") or {}
 
     # Build version signature from definition fields. The tool list is reduced to sorted IDs so
     # an API that returns tools in a different order does not split one version into two.
@@ -269,7 +269,7 @@ def analyze_spans(spans: list[dict]) -> dict:
         trace_output_empty = False
 
         for span in trace_spans:
-            attrs = span.get("attributes", {})
+            attrs = span.get("attributes") or {}
             # Attributes are flat: aw_agent.invocation_id, aw_agent.id
             inv_id = attrs.get("aw_agent.invocation_id")
             if inv_id:
@@ -331,7 +331,7 @@ def analyze_spans(spans: list[dict]) -> dict:
         # this is a belt-and-suspenders addition, not a replacement for status.
         has_error = any(
             s.get("status") == "error"
-            or s.get("attributes", {}).get("tool.result_is_error") is True
+            or (s.get("attributes") or {}).get("tool.result_is_error") is True
             for s in trace_spans
         )
         trace_statuses["error" if has_error else "success"] += 1
@@ -353,7 +353,7 @@ def analyze_spans(spans: list[dict]) -> dict:
         # one span_type is counted (avoids double-counting each tool call).
         for span in trace_spans:
             span_type = span.get("span_type", "")
-            attrs = span.get("attributes", {})
+            attrs = span.get("attributes") or {}
             # span.get("name") is a generic display label ("Tool Response" for
             # EVERY tool_response span, regardless of which tool ran) -- the
             # real tool identifier is attributes.tool.id/tool.name, confirmed
@@ -424,7 +424,7 @@ def analyze_execution_patterns(by_trace: dict) -> dict:
         if not root_span:
             continue
 
-        attrs = root_span.get("attributes", {})
+        attrs = root_span.get("attributes") or {}
 
         # Collect configured tools. tool.get("id") is preferred over "name" --
         # the agent definition's "name" field is frequently an empty string
@@ -464,7 +464,7 @@ def analyze_execution_patterns(by_trace: dict) -> dict:
             span_type = span.get("span_type", "")
             name = span.get("name", "")
             status = span.get("status", "")
-            span_attrs = span.get("attributes", {})
+            span_attrs = span.get("attributes") or {}
 
             # Track LLM calls
             if "llm" in span_type.lower() or "model" in span_type.lower():

@@ -30,6 +30,24 @@ jobs:
       - name: Run symlink bootstrap tests
         run: ./test-bootstrap-symlink.sh
 
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.14", "3.15"]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: pip install -r requirements-test.txt
+      - name: Run unit tests
+        # Coverage sources and subprocess measurement are set in pyproject.toml. The floor only
+        # moves up: raise it when coverage rises, never lower it. -rs lists any skipped test,
+        # so a test that skips itself can't pass unnoticed.
+        run: pytest tests/ -v -rs --cov --cov-report=term-missing --cov-fail-under=93
+
   pylint:
     runs-on: ubuntu-latest
     steps:

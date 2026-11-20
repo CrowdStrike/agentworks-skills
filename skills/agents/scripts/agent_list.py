@@ -25,7 +25,6 @@ import argparse
 import json
 import sys
 import os
-from datetime import datetime, timezone
 
 sys.path.insert(
     0,
@@ -38,36 +37,10 @@ import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
 from auth import call_native, get_agents_client  # pylint: disable=wrong-import-position
-from formatting import format_modified_by, format_timestamp  # pylint: disable=wrong-import-position
-
-
-def fetch_all_ids():
-    """Return every agent ID, paging 100 at a time until the API's pagination total is reached."""
-    all_ids = []
-    offset, limit = 0, 100
-    while True:
-        r = call_native(get_agents_client().query_studio_agents, parameters={"limit": limit, "offset": offset})
-        ids = r.get("resources") or []
-        if not ids:
-            break
-        all_ids.extend(ids)
-        total = r.get("meta", {}).get("pagination", {}).get("total", 0)
-        offset += limit
-        if offset >= total:
-            break
-    return all_ids
-
-
-def parse_timestamp(value: str) -> datetime | None:
-    """Parse an ISO8601 date/datetime (trailing "Z" accepted; naive values are UTC).
-
-    Returns None if value is empty or unparseable.
-    """
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (AttributeError, ValueError):
-        return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+from discovery_helpers import fetch_all_ids  # pylint: disable=wrong-import-position
+from formatting import (  # pylint: disable=wrong-import-position
+    format_modified_by, format_timestamp, modified_bounds, modified_within,
+)
 
 
 def fetch_entities(ids):
@@ -97,35 +70,23 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-locals,too-man
     parser.add_argument("--json", action="store_true", help="Output raw JSON rows instead of a table")
     args = parser.parse_args()
 
-    bounds = {}
-    for flag in ("modified_since", "modified_before"):
-        raw = getattr(args, flag)
-        if raw:
-            bounds[flag] = parse_timestamp(raw)
-            if bounds[flag] is None:
-                parser.error(f"--{flag.replace('_', '-')}: not an ISO date/datetime: {raw!r}")
+    bounds = modified_bounds(parser, args)
 
-    ids = fetch_all_ids()
+    ids = fetch_all_ids(get_agents_client().query_studio_agents)
     entities = fetch_entities(ids)
 
     rows = []
     for agent in entities:
         av = agent.get("active_version") or {}
-        name = av.get("name", "")
+        name = av.get("name") or ""
         if args.name_contains and args.name_contains.lower() not in name.lower():
             continue
         created_by = format_modified_by(av.get("created_by"))
         if args.created_by and args.created_by.lower() not in created_by.lower():
             continue
-        updated_at = av.get("updated_at", "")
-        if bounds:
-            updated_dt = parse_timestamp(updated_at)
-            if updated_dt is None:
-                continue
-            if "modified_since" in bounds and updated_dt < bounds["modified_since"]:
-                continue
-            if "modified_before" in bounds and updated_dt >= bounds["modified_before"]:
-                continue
+        updated_at = av.get("updated_at") or ""
+        if not modified_within(updated_at, bounds):
+            continue
         is_published = bool(av.get("is_published"))
         if args.status == "published" and not is_published:
             continue
@@ -134,7 +95,7 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-locals,too-man
         rows.append({
             "id": agent.get("id"),
             "name": name,
-            "description": av.get("description", ""),
+            "description": av.get("description") or "",
             "updated_at": updated_at,
             "updated_by": format_modified_by(av.get("updated_by")),
             "created_by": created_by,
@@ -179,4 +140,9 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-locals,too-man
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RuntimeError as exc:
+        # call_native raises RuntimeError on HTTP errors (e.g. 404 bad ID, 403 missing scope).
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)

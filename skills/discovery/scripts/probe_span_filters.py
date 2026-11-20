@@ -31,6 +31,10 @@ _bootstrap.ensure_deps(__file__)
 from auth import call_native, get_spans_client  # pylint: disable=wrong-import-position
 
 
+# The time bound every script adds to a span query.
+SCRIPT_TIME_FILTER = "start_time:>='now-24h'"
+
+
 def probe_filter(filter_expr: str) -> tuple[bool, int, str]:
     """Test a filter and return (success, result_count, error_message)."""
     params = {"filter": filter_expr, "limit": "5"}
@@ -67,7 +71,10 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
     # Group 1: Empty/minimal filters
     tests.append(("Empty filter (relies on API default)", ""))
 
-    # Group 2: Date math expressions (as documented)
+    # Group 2: The syntax the scripts send today (discovery_helpers._ensure_span_time_filter).
+    tests.append(("Scripts' syntax: quoted date math", SCRIPT_TIME_FILTER))
+
+    # Group 3: Unquoted date math expressions
     tests.append(("Date math: now-1h", "start_time:>=now-1h"))
     tests.append(("Date math: now-24h", "start_time:>=now-24h"))
     tests.append(("Date math: now-7d", "start_time:>=now-7d"))
@@ -99,7 +106,10 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
     tests.append(("Space after operator", "start_time:>= now-24h"))
 
     # Group 8: With trace_id (if provided)
+    script_filter = SCRIPT_TIME_FILTER
     if args.trace_id:
+        script_filter = f"trace_id:'{args.trace_id}'+{SCRIPT_TIME_FILTER}"
+        tests.append(("Scripts' syntax: trace ID + date math", script_filter))
         tests.append(("Trace ID only", f'trace_id:"{args.trace_id}"'))
         tests.append(("Trace ID + date math", f'trace_id:"{args.trace_id}"+start_time:>=now-24h'))
         tests.append(("Trace ID + RFC3339", f'trace_id:"{args.trace_id}"+start_time:>="{one_day_ago}"'))
@@ -130,7 +140,6 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
     print()
 
     successful = [r for r in results if r[2]]
-    failed = [r for r in results if not r[2]]
 
     print(f"✅ Successful: {len(successful)}/{len(results)}")
     if successful:
@@ -141,7 +150,7 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
             print(f"    → {count} results")
             print()
 
-    print(f"\n❌ Failed: {len(failed)}/{len(results)}")
+    print(f"\n❌ Failed: {len(results) - len(successful)}/{len(results)}")
 
     if not successful:
         print("\n⚠️ NO FILTERS WORKED!")
@@ -159,19 +168,23 @@ def main() -> None:  # pylint: disable=too-many-statements  # refactor once cove
     print("RECOMMENDED APPROACH")
     print("=" * 60)
 
-    if successful:
-        # The empty filter always "works" (the API falls back to its default window), so it is
-        # never a useful recommendation; prefer the first working filter that has content.
-        best = next((r for r in successful if r[1]), None)
-    else:
-        best = None
+    # An empty filter isn't useful advice. When a trace ID was requested, only recommend
+    # a working time-bounded trace filter, not a time-only filter or an unbounded trace.
+    best = next((r for r in successful if r[1] and (
+        not args.trace_id or ("trace_id:" in r[1] and "start_time:" in r[1])
+    )), None)
 
-    if best:
+    if any(r[1] == script_filter for r in successful):
+        print(f"\nThe scripts already use a working syntax ({script_filter}). No change is needed.")
+    elif best:
         print("\nUse this filter format:")
         print(f"  {best[1]}")
         print("\nUpdate scripts to use this syntax instead of current format.")
     else:
-        print("\nSince no time filters work, use fallback strategy:")
+        if args.trace_id:
+            print("\nThe scripts' trace-ID filter failed. No time-bounded trace-ID filter worked.")
+        else:
+            print("\nSince no time filters work, use fallback strategy:")
         print("  1. If you have invocation IDs:")
         print("     Use: inspect_invocation.py --invocation-id <id>")
         print()

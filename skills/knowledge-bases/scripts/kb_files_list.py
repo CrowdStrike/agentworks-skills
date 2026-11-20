@@ -37,26 +37,8 @@ import _bootstrap  # pylint: disable=wrong-import-position
 
 _bootstrap.ensure_deps(__file__)
 from auth import call_native, get_kb_files_client  # pylint: disable=wrong-import-position
+from discovery_helpers import fetch_all_ids  # pylint: disable=wrong-import-position
 from formatting import format_modified_by, format_timestamp  # pylint: disable=wrong-import-position
-
-
-def fetch_all_file_ids(client, kb_id):
-    """Return every file ID in a knowledge base, paging 100 at a time until the API's pagination total is reached."""
-    all_ids = []
-    offset, limit = 0, 100
-    while True:
-        body = call_native(client.QueriesKnowledgeBaseFilesV1, parameters={
-            "knowledge_base_id": kb_id, "limit": limit, "offset": offset,
-        })
-        ids = body.get("resources") or []
-        if not ids:
-            break
-        all_ids.extend(ids)
-        total = body.get("meta", {}).get("pagination", {}).get("total", 0)
-        offset += limit
-        if offset >= total:
-            break
-    return all_ids
 
 
 def fetch_file_entities(client, kb_id, ids):
@@ -79,7 +61,7 @@ def main() -> None:
     args = parser.parse_args()
 
     client = get_kb_files_client()
-    ids = fetch_all_file_ids(client, args.kb_id)
+    ids = fetch_all_ids(client.QueriesKnowledgeBaseFilesV1, knowledge_base_id=args.kb_id)
 
     if not ids:
         if args.json:
@@ -92,7 +74,7 @@ def main() -> None:
 
     rows = []
     for f in entities:
-        name = f.get("name", "")
+        name = f.get("name") or ""
         if args.name_contains and args.name_contains.lower() not in name.lower():
             continue
         rows.append({
@@ -102,7 +84,7 @@ def main() -> None:
             "size": f.get("size", 0),
             "content_type": f.get("content_type", ""),
             "status": f.get("status", ""),
-            "updated_at": f.get("updated_at", ""),
+            "updated_at": f.get("updated_at") or "",
             "updated_by": format_modified_by(f.get("updated_by")),
         })
 

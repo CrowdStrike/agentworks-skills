@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Foundry cross-plugin note now also fires for the `agents`, `invocation`, and `discovery`
   skills when an assistant reports skill names without the plugin prefix
 - Hooks no longer print jq errors when they receive input that isn't JSON
+- `agent_list.py`, `kb_list.py`, and `kb_files_list.py` no longer stop after the first 100 results when the API
+  omits its pagination total, and no longer crash on an agent, knowledge base, or file with a null name
+- `kb_list.py --modified-since`/`--modified-before` now compare dates as instants and reject a value that isn't an
+  ISO date, instead of comparing text and silently matching nothing
+- `analyze_agent.py`, `inspect_invocation.py`, `spans_get.py`, and the trace waterfall no longer crash on a span
+  whose `attributes` is null
+- `probe_span_filters.py` now tests the filter syntax the scripts use, and says no change is needed when it works
+  instead of recommending a different syntax
+- With `--trace-id`, `probe_span_filters.py` only recommends working time-bounded trace filters and no longer
+  reports "No change is needed" when only a time-only filter works
+- Agent, knowledge-base, and file listings stop at the API's 10,000-result query window instead of failing on
+  an out-of-range request; they keep the collected results and warn when the listing may be incomplete
+- Thirteen agent, discovery, and invoke scripts now report an API error as a single `ERROR: HTTP <status>: ...`
+  line and exit 1, like the other scripts, instead of printing a Python traceback
 
 ## [1.0.1] - 2026-10-21
 

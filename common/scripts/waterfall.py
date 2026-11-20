@@ -45,7 +45,7 @@ def _humanize_duration(duration_ms: float | int | None) -> str:
 
 def _credits(span: dict[str, Any]) -> str:
     """Extract credit cost from span attributes."""
-    attrs = span.get("attributes", {})
+    attrs = span.get("attributes") or {}
     cents = attrs.get("cost.raw_credit_cents")
     if isinstance(cents, (int, float)):
         return f"{cents / 100:.2f}"

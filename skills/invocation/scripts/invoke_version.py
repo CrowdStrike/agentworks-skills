@@ -111,4 +111,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RuntimeError as exc:
+        # call_native raises RuntimeError on HTTP errors (e.g. 404 bad ID, 403 missing scope).
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)

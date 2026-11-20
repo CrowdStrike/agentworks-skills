@@ -103,7 +103,7 @@ def analyze_span_structure(spans: list[dict]) -> dict:
             all_fields.add(key)
 
         # Attribute fields
-        attrs = span.get("attributes", {})
+        attrs = span.get("attributes") or {}
         if attrs:
             for key, value in attrs.items():
                 attribute_fields.add(key)
@@ -116,7 +116,7 @@ def analyze_span_structure(spans: list[dict]) -> dict:
         "top_level_fields": sorted(all_fields),
         "attribute_fields": sorted(attribute_fields),
         "sample_span_keys": list(spans[0].keys()) if spans else [],
-        "sample_attributes": list(spans[0].get("attributes", {}).keys()) if spans else []
+        "sample_attributes": list((spans[0].get("attributes") or {}).keys()) if spans else []
     }
 
 
@@ -215,7 +215,7 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-statements  # 
     print()
 
     for i, span in enumerate(spans, 1):
-        attrs = span.get("attributes", {})
+        attrs = span.get("attributes") or {}
 
         # Check various possible paths
         agent_id = None
@@ -248,7 +248,7 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-statements  # 
 
     # Based on what we found, suggest filters
     if any(
-        "aw_agent.id" in s.get("attributes", {}) or "aw_agent.invocation_id" in s.get("attributes", {})
+        "aw_agent.id" in (s.get("attributes") or {}) or "aw_agent.invocation_id" in (s.get("attributes") or {})
         for s in spans
     ):
         print("✓ aw_agent attributes detected (flat dotted keys)")

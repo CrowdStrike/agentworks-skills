@@ -18,6 +18,9 @@ from auth import call_native, get_spans_client, is_transient_error
 # Attempts per span batch (1 try + retries on transient errors).
 HYDRATE_ATTEMPTS = 3
 
+# Agent, knowledge-base, and knowledge-base-file queries require offset + limit <= 10,000.
+QUERY_RESULT_WINDOW = 10000
+
 
 def hydrate_spans(span_ids: list[str], batch_size: int = 50) -> list[dict]:
     """Hydrate span IDs into full entities with automatic batching.
@@ -66,6 +69,46 @@ def hydrate_spans(span_ids: list[str], batch_size: int = 50) -> list[dict]:
             break
 
     return all_spans
+
+
+def fetch_all_ids(query_fn: Callable[..., dict], page_size: int = 100, **parameters: Any) -> list[str]:
+    """Return IDs from an agent or knowledge-base /queries endpoint, paging with offset.
+
+    Stops when the API's pagination total is reached. When the API reports no total, it keeps
+    going until a page comes back short, or adds no new IDs (a server that ignores offset).
+    Treating a missing total as zero would stop after the first page and silently truncate
+    the listing. These endpoints allow a 10,000-result window. At that boundary, return the
+    IDs already collected and warn on stderr unless the reported total proves they are complete.
+
+    Args:
+        query_fn: A FalconPy query method, e.g. get_agents_client().query_studio_agents
+        page_size: IDs per request
+        **parameters: Extra query parameters sent on every page (e.g. knowledge_base_id)
+    """
+    all_ids: list[str] = []
+    seen: set[str] = set()
+    offset = 0
+    while True:
+        limit = min(page_size, QUERY_RESULT_WINDOW - offset)
+        body = call_native(query_fn, parameters={**parameters, "limit": limit, "offset": offset})
+        page = body.get("resources") or []
+        new = [i for i in page if i not in seen]
+        if not new:
+            break
+        all_ids.extend(new)
+        seen.update(new)
+        offset += len(page)
+        total = (body.get("meta") or {}).get("pagination", {}).get("total")
+        if total is not None and offset >= total:
+            break
+        if total is None and len(page) < limit:
+            break
+        if offset >= QUERY_RESULT_WINDOW:
+            print(f"WARNING: Reached the API's {QUERY_RESULT_WINDOW:,}-result query window; "
+                  "listing may be incomplete. Use server-side filters to narrow the query.",
+                  file=sys.stderr)
+            break
+    return all_ids
 
 
 # QueriesSpansV1 rejects (or clamps) any limit above this.
